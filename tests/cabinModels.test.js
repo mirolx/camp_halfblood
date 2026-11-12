@@ -74,3 +74,28 @@ describe('cabins with a Blender model', () => {
     expect(ws.y).toBeCloseTo(1, 5);
   });
 });
+
+describe('cabin model registry', () => {
+  test('hephaestus cabin is registered with its Blender root', async () => {
+    const { CABIN_MODELS } = await import('../src/sim/world/models.js');
+    expect(CABIN_MODELS.hephaestus).toEqual({ file: 'hephaestus_cabin.glb', root: 'HEPHAESTUS_CABIN' });
+  });
+
+  test('hephaestus uses the model and keeps its anchors', () => {
+    const scene = new THREE.Group();
+    const root = new THREE.Group();
+    root.name = 'HEPHAESTUS_CABIN';
+    const forgeFlame = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.5), new THREE.MeshStandardMaterial());
+    forgeFlame.name = 'FORGE_flame';
+    root.add(new THREE.Mesh(new THREE.BoxGeometry(9, 6, 13), new THREE.MeshStandardMaterial()), forgeFlame);
+    scene.add(root);
+    const model = prepareCabinModel(scene, 'HEPHAESTUS_CABIN');
+    expect(model.userData.fireSpots).toHaveLength(1);
+    const plain = buildCabin('hephaestus');
+    const withModel = buildCabin('hephaestus', { model });
+    expect(withModel.getObjectByName('model-hephaestus')).toBeTruthy();
+    for (const k of Object.keys(plain.userData.anchors)) {
+      expect(withModel.userData.anchors[k].equals(plain.userData.anchors[k]), k).toBe(true);
+    }
+  });
+});
