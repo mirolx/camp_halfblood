@@ -1,5 +1,6 @@
 import * as quiz from './content/quiz.js';
 import * as ui from './content/ui.js';
+import * as scenes from './content/scenes.js';
 
 // All user-facing copy. Every key must exist in both languages (enforced by tests/i18n.test.js).
 export const strings = {
@@ -10,6 +11,7 @@ export const strings = {
     'lang.en': 'EN',
     ...quiz.ko,
     ...ui.ko,
+    ...scenes.ko,
   },
   en: {
     'app.title': 'Camp Half-Blood',
@@ -18,6 +20,7 @@ export const strings = {
     'lang.en': 'EN',
     ...quiz.en,
     ...ui.en,
+    ...scenes.en,
   },
 };
 
