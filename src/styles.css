@@ -1,0 +1,39 @@
+:root {
+  --marble: #f3efe6;
+  --marble-dim: #d9d2c3;
+  --gold: #c9a24a;
+  --gold-bright: #e8c873;
+  --camp-orange: #f28c28;
+  --ink: #1d1b18;
+  --night: #0d1424;
+  --glass: rgba(16, 20, 30, 0.55);
+  --font-title: 'Cinzel', serif;
+  --font-body: 'Noto Sans KR', system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--night);
+  color: var(--marble);
+  font-family: var(--font-body);
+}
+
+#stage {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+#app {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
+#app > * { pointer-events: auto; }
