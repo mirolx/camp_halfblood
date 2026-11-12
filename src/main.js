@@ -8,6 +8,7 @@ import { mountEndScreen } from './ui/endScreen.js';
 import { sceneAt } from './sim/timeline.js';
 import { createAudio } from './audio/engine.js';
 import { SOUNDS } from './audio/manifest.js';
+import { loadCabinModels } from './sim/world/models.js';
 
 const stage = createStage(document.getElementById('stage'));
 const app = createApp(document.getElementById('app'));
@@ -35,12 +36,17 @@ app.register('claiming', (el, go, state) =>
   }),
 );
 
-app.register('sim', (el, go, state) => {
+// Blender cabin models load in the background while the player takes the test.
+let cabinModels = null;
+const modelsReady = loadCabinModels().then((m) => (cabinModels = m));
+
+function runSim(el, go, state) {
   const director = createDirector(stage, {
     godId: state.godId,
     gender: state.gender,
     startAt: params.get('screen') === 'sim' ? debugT : 0,
     audio,
+    models: cabinModels ?? {},
   });
   const hud = mountHud(el, { director, cameras: director.cameras, audio });
   hud.showCaption(sceneAt(director.elapsed()));
@@ -55,20 +61,34 @@ app.register('sim', (el, go, state) => {
     }, 2500);
   });
   window.__director = director;
-  return {
-    destroy: () => {
-      clearTimeout(endTimer);
-      end?.destroy();
-      hud.destroy();
-      director.destroy();
-    },
+  return () => {
+    clearTimeout(endTimer);
+    end?.destroy();
+    hud.destroy();
+    director.destroy();
   };
+}
+
+app.register('sim', (el, go, state) => {
+  if (cabinModels) return { destroy: runSim(el, go, state) };
+  // models still loading (e.g. jumping straight in with ?screen=sim): wait briefly
+  let cancelled = false;
+  let stop = null;
+  const wait = document.createElement('p');
+  wait.className = 'screen loading';
+  wait.textContent = '…';
+  el.appendChild(wait);
+  modelsReady.then(() => {
+    wait.remove();
+    if (!cancelled) stop = runSim(el, go, state);
+  });
+  return { destroy: () => { cancelled = true; wait.remove(); stop?.(); } };
 });
 
 
 if (params.get('screen') === 'debug') {
-  app.register('debug', () => runDebugView(stage, { tod: Number(params.get('tod') ?? 0.3), interiorFor: params.get('god') ?? 'hermes' }));
-  app.go('debug');
+  app.register('debug', () => runDebugView(stage, { tod: Number(params.get('tod') ?? 0.3), interiorFor: params.get('god') ?? 'hermes', models: cabinModels ?? {} }));
+  modelsReady.then(() => app.go('debug'));
 } else if (params.get('god')) {
   // debug shortcut: ?god=athena&gender=female&screen=claiming|sim&t=seconds
   Object.assign(app.state, { godId: params.get('god'), gender: params.get('gender') ?? 'female' });

@@ -236,8 +236,20 @@ function addInteriorProps(id, g, s, h) {
   }
 }
 
-/** One cabin. Local frame: centered at origin, front (door) faces +z, floor at y=0. */
-export function buildCabin(id, { interior = false } = {}) {
+const ANCHORS = () => ({
+  door: new THREE.Vector3(0, 0, D / 2 + 2.2),
+  window: new THREE.Vector3(0, 1.6, -D / 2 + T + 0.85), // camera spot right at the back window
+  windowSide: new THREE.Vector3(1.35, 0.2, -D / 2 + 1.1), // where 'me' stands beside it
+  bed: new THREE.Vector3(W / 2 - 0.8, 0.9, -1.8),
+  sound: new THREE.Vector3(0, 1.5, 0),
+});
+
+/**
+ * One cabin. Local frame: centered at origin, front (door) faces +z, floor at y=0.
+ * With a Blender model (and no interior needed) the model replaces the procedural build;
+ * groupScale is the scale layoutCabins applies to the group, so the model keeps its real size.
+ */
+export function buildCabin(id, { interior = false, model = null, groupScale = 1 } = {}) {
   const s = STYLES[id];
   if (!s) throw new Error(`Unknown cabin: ${id}`);
   const h = s.height ?? H;
@@ -250,6 +262,19 @@ export function buildCabin(id, { interior = false } = {}) {
   fp.position.y = 0.02;
   fp.receiveShadow = true;
   g.add(fp);
+
+  if (model && !interior) {
+    fp.visible = false; // the model brings its own stepped platform
+    const m = model.clone(true);
+    m.name = `model-${id}`;
+    m.userData.fireSpots = model.userData.fireSpots;
+    m.scale.setScalar(1 / groupScale);
+    g.add(m);
+    g.userData.anchors = ANCHORS();
+    g.userData.id = id;
+    g.userData.style = s;
+    return g;
+  }
 
   // floor + walls with openings
   box(W, 0.2, D, std('#8a6a4a'), 0, 0.1, 0, g);
@@ -318,20 +343,14 @@ export function buildCabin(id, { interior = false } = {}) {
     g.add(inside);
   }
 
-  g.userData.anchors = {
-    door: new THREE.Vector3(0, 0, D / 2 + 2.2),
-    window: new THREE.Vector3(0, 1.6, -D / 2 + T + 0.85), // camera spot right at the back window
-    windowSide: new THREE.Vector3(1.35, 0.2, -D / 2 + 1.1), // where 'me' stands beside it
-    bed: new THREE.Vector3(W / 2 - 0.8, 0.9, -1.8),
-    sound: new THREE.Vector3(0, 1.5, 0),
-  };
+  g.userData.anchors = ANCHORS();
   g.userData.id = id;
   g.userData.style = s;
   return g;
 }
 
 /** Place all 12 cabins in the Ω around the green. Odd (gods) west, even (goddesses) east. */
-export function layoutCabins(scene, heightAt, { interiorFor } = {}) {
+export function layoutCabins(scene, heightAt, { interiorFor, models = {} } = {}) {
   const { radius } = LAYOUT.cabinRing;
   const step = THREE.MathUtils.degToRad(27.3);
   const map = new Map();
@@ -344,10 +363,11 @@ export function layoutCabins(scene, heightAt, { interiorFor } = {}) {
     const x = Math.sin(a) * r;
     const z = -Math.cos(a) * r;
     // cabin interior lookup uses the god id; Artemis' hunters use cabin 8
-    const cabin = buildCabin(id, { interior: id === interiorFor });
+    const groupScale = STYLES[id].scale ?? 1;
+    const cabin = buildCabin(id, { interior: id === interiorFor, model: models[id], groupScale });
     cabin.position.set(x, heightAt(x, z), z);
     cabin.rotation.y = Math.atan2(-x, -z);
-    cabin.scale.setScalar(STYLES[id].scale ?? 1);
+    cabin.scale.setScalar(groupScale);
     scene.add(cabin);
     cabin.updateMatrixWorld(true);
     cabin.userData.worldAnchors = Object.fromEntries(

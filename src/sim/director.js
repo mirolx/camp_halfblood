@@ -18,10 +18,10 @@ const FIRE_COLORS = [
  * Runs the 10-minute day: world, crowd, pegasi, cameras and the clock.
  * The returned API is what the HUD and audio talk to.
  */
-export function createDirector(stage, { godId, gender, startAt = 0, audio = null }) {
+export function createDirector(stage, { godId, gender, startAt = 0, audio = null, models = {} }) {
   const scene = new THREE.Scene();
   const home = godId; // Artemis' hunters stay in cabin 8, which is Artemis' cabin
-  const world = buildWorld(scene, stage.renderer, { interiorFor: home });
+  const world = buildWorld(scene, stage.renderer, { interiorFor: home, models });
   const ctx = {
     heightAt: world.heightAt,
     cabins: world.cabins,
