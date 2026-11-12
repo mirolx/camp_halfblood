@@ -12,7 +12,7 @@ export function createStage(canvas) {
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.0;
   renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.shadowMap.type = THREE.PCFShadowMap;
 
   const composer = new EffectComposer(renderer);
   const renderPass = new RenderPass(new THREE.Scene(), new THREE.PerspectiveCamera());

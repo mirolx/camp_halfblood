@@ -54,6 +54,11 @@ export function createDirector(stage, { godId, gender, startAt = 0, audio = null
   ctx.pegasus = pegasi.list[0];
 
   const cameras = createCameras(stage.renderer, ctx);
+  if (audio) {
+    const A = ctx.anchors;
+    for (const k of ['lake', 'pavilion', 'campfire', 'archery', 'arena']) audio.setPosition(k, A[k]);
+    audio.setPosition('pegasus', () => pegasi.list[0].position);
+  }
   const clock = createClock({ startAt });
   stage.setScene(scene, cameras.camera);
 
@@ -107,7 +112,7 @@ export function createDirector(stage, { godId, gender, startAt = 0, audio = null
     stage.bloom.strength = 0.04 + night * 0.4;
     stage.bloom.threshold = 0.85;
 
-    audio?.update?.({ sceneId: s.id, progress: p, tod, camera: cameras.camera, isNight: sky.isNight });
+    audio?.update({ sceneId: s.id, progress: p, dt, camera: cameras.camera });
   });
 
   return {
@@ -128,6 +133,7 @@ export function createDirector(stage, { godId, gender, startAt = 0, audio = null
     onEnd: (fn) => clock.onEnd(fn),
     destroy() {
       off();
+      audio?.stopAll();
       cameras.dispose();
       stage.clear();
     },
