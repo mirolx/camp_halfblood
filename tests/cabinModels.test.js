@@ -106,6 +106,11 @@ describe('cabin model registry', () => {
     expect(CABIN_MODELS.athena).toEqual({ file: 'athena_cabin.glb', root: 'ATHENA_CABIN' });
   });
 
+  test('apollo cabin is registered with its Blender root', async () => {
+    const { CABIN_MODELS } = await import('../src/sim/world/models.js');
+    expect(CABIN_MODELS.apollo).toEqual({ file: 'apollo_cabin.glb', root: 'APOLLO_CABIN' });
+  });
+
   test('hephaestus uses the model and keeps its anchors', () => {
     const scene = new THREE.Group();
     const root = new THREE.Group();
