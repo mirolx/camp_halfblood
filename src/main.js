@@ -3,6 +3,9 @@ import { createStage } from './three/renderer.js';
 import { runClaiming } from './three/claimingScene.js';
 import { runDebugView } from './sim/debugView.js';
 import { createDirector } from './sim/director.js';
+import { mountHud } from './ui/hud.js';
+import { mountEndScreen } from './ui/endScreen.js';
+import { sceneAt } from './sim/timeline.js';
 
 const stage = createStage(document.getElementById('stage'));
 const app = createApp(document.getElementById('app'));
@@ -24,18 +27,29 @@ app.register('sim', (el, go, state) => {
     gender: state.gender,
     startAt: params.get('screen') === 'sim' ? debugT : 0,
   });
-  director.onEnd(() => go('end'));
+  const hud = mountHud(el, { director, cameras: director.cameras, audio: null });
+  hud.showCaption(sceneAt(director.elapsed()));
+  // the ending sits on top of the starry final shot instead of replacing it
+  let end = null;
+  let endTimer = null;
+  director.onEnd(() => {
+    endTimer = setTimeout(() => {
+      hud.destroy();
+      document.body.dataset.screen = 'end';
+      end = mountEndScreen(el, { onReplay: () => go('sim'), onRetake: () => go('start') });
+    }, 2500);
+  });
   window.__director = director;
-  return { destroy: () => director.destroy() };
+  return {
+    destroy: () => {
+      clearTimeout(endTimer);
+      end?.destroy();
+      hud.destroy();
+      director.destroy();
+    },
+  };
 });
 
-app.register('end', (el) => {
-  const p = document.createElement('p');
-  p.className = 'screen';
-  p.textContent = 'end';
-  el.appendChild(p);
-  return { destroy: () => p.remove() };
-});
 
 if (params.get('screen') === 'debug') {
   app.register('debug', () => runDebugView(stage, { tod: Number(params.get('tod') ?? 0.3), interiorFor: params.get('god') ?? 'hermes' }));
