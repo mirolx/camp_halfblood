@@ -3,15 +3,16 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { buildWorld } from './world/index.js';
 
 // Free-orbit preview of the world at a fixed time of day (?screen=sim&tod=0.3). Dev only.
-export function runDebugView(stage, { tod = 0.3, camera: camPos } = {}) {
+export function runDebugView(stage, { tod = 0.3, camera: camPos, interiorFor } = {}) {
   const scene = new THREE.Scene();
   const camera = new THREE.PerspectiveCamera(50, 1, 0.5, 6000);
   camera.position.set(...(camPos ?? [90, 70, 120]));
   const controls = new OrbitControls(camera, stage.renderer.domElement);
   controls.target.set(10, 0, -10);
-  const world = buildWorld(scene, stage.renderer);
+  const world = buildWorld(scene, stage.renderer, { interiorFor });
+  window.__world = world;
   stage.setScene(scene, camera);
-  stage.bloom.strength = 0.25;
+  stage.bloom.strength = 0.05;
   stage.bloom.threshold = 0.95;
   let current = tod;
   window.__setTod = (v) => { current = v; };

@@ -29,3 +29,4 @@ if (params.get('screen') === 'debug') {
   app.go('start');
 }
 window.__app = app;
+window.__stage = stage;
