@@ -40,6 +40,25 @@ export function createStage(canvas) {
   }
   window.addEventListener('resize', resize);
 
+  // Automatic quality fallback for slower machines: lower resolution first, then shadows.
+  let ema = 1 / 60;
+  let watch = 0;
+  let level = 0;
+  function adaptQuality(dt) {
+    if (dt <= 0 || level >= 2) return;
+    ema = ema * 0.95 + dt * 0.05;
+    watch += dt;
+    if (watch < 4) return;
+    if (ema > 1 / 36) {
+      level++;
+      watch = 0;
+      if (level === 1) renderer.setPixelRatio(1);
+      if (level === 2) renderer.shadowMap.enabled = false;
+      resize();
+      console.info('[stage] quality level', level);
+    }
+  }
+
   function frame(now) {
     if (!running) return;
     requestAnimationFrame(frame);
@@ -47,6 +66,7 @@ export function createStage(canvas) {
     last = now;
     if (document.hidden) dt = 0;
     elapsed += dt;
+    adaptQuality(dt);
     for (const fn of [...callbacks]) fn(dt, elapsed);
     if (scene && camera) composer.render();
   }
