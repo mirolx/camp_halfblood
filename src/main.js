@@ -1,13 +1,25 @@
 import { createApp } from './app.js';
+import { createStage } from './three/renderer.js';
+import { runClaiming } from './three/claimingScene.js';
 
+const stage = createStage(document.getElementById('stage'));
 const app = createApp(document.getElementById('app'));
-// Temporary until the claiming scene exists (Task 5).
-app.register('claiming', (el, go, state) => {
-  const p = document.createElement('p');
-  p.className = 'screen';
-  p.textContent = `claimed: ${state.godId}`;
-  el.appendChild(p);
-  return { destroy: () => p.remove() };
-});
-app.go('start');
+
+app.register('claiming', (el, go, state) =>
+  runClaiming(stage, el, {
+    godId: state.godId,
+    gender: state.gender,
+    onContinue: () => go('sim'),
+    startAt: Number(new URLSearchParams(location.search).get('t') ?? 0),
+  }),
+);
+
+const params = new URLSearchParams(location.search);
+if (params.get('god')) {
+  // debug shortcut: ?god=athena&gender=female&screen=claiming
+  Object.assign(app.state, { godId: params.get('god'), gender: params.get('gender') ?? 'female' });
+  app.go(params.get('screen') ?? 'claiming');
+} else {
+  app.go('start');
+}
 window.__app = app;

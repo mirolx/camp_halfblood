@@ -7,6 +7,9 @@ export const ko = {
   'start.go': '캠프에 들어가기',
   'start.sound': '소리를 켜고 들어주세요',
   'quiz.back': '이전',
+  'claim.kicker': '그 순간, 머리 위로 빛이 떠올랐다',
+  'claim.hunter': '달빛이 너를 감쌌다. 사냥꾼으로 받아들여졌다',
+  'claim.continue': '캠프로 들어가기',
 };
 export const en = {
   'start.kicker': 'Somewhere on Long Island, where myths are alive',
@@ -17,4 +20,7 @@ export const en = {
   'start.go': 'Enter the camp',
   'start.sound': 'Best with sound on',
   'quiz.back': 'Back',
+  'claim.kicker': 'In that moment, a light rose above your head',
+  'claim.hunter': 'Moonlight surrounded you. You have been welcomed as a Hunter',
+  'claim.continue': 'Enter the camp',
 };

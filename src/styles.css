@@ -179,3 +179,26 @@ body[data-screen='start'], body[data-screen='quiz'] {
 @media (prefers-reduced-motion: reduce) {
   .quiz-screen.enter .quiz-question, .quiz-screen.enter .quiz-options { animation: none; }
 }
+
+/* ---------- claiming ---------- */
+.claim-overlay {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  padding: 48px 16px 40px;
+  text-align: center;
+  background: linear-gradient(to top, rgba(5, 8, 16, 0.92) 0%, rgba(5, 8, 16, 0.6) 60%, transparent 100%);
+  opacity: 0;
+  transform: translateY(16px);
+  transition: opacity 1.4s ease, transform 1.4s ease;
+  pointer-events: none;
+}
+.claim-overlay.show { opacity: 1; transform: none; pointer-events: auto; }
+.claim-kicker { margin: 0 0 6px; font-size: 14px; color: var(--marble-dim); letter-spacing: 0.04em; }
+.claim-name {
+  margin: 0;
+  font: 700 clamp(34px, 5vw, 56px) / 1.1 var(--font-title);
+  color: #fff;
+  text-shadow: 0 0 28px var(--god);
+}
+.claim-title { margin: 8px 0 12px; font: 500 15px var(--font-title); letter-spacing: 0.14em; color: var(--god); }
+.claim-desc { max-width: 36em; margin: 0 auto 22px; line-height: 1.75; color: #e9e3d6; }
