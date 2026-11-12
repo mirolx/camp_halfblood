@@ -37,3 +37,26 @@ html, body {
 }
 
 #app > * { pointer-events: auto; }
+
+.lang-toggle {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 50;
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 999px;
+  background: var(--glass);
+  backdrop-filter: blur(8px);
+}
+.lang-toggle button {
+  border: 0;
+  background: transparent;
+  color: var(--marble-dim);
+  font: 500 13px var(--font-body);
+  padding: 6px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.lang-toggle button.active { background: var(--gold); color: var(--ink); }
