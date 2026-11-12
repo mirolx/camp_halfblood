@@ -141,7 +141,7 @@ export function createCameras(renderer, ctx) {
     }
   }
 
-  dom.addEventListener('pointerdown', (e) => {
+  const onDown = (e) => {
     if (mode === 'first') {
       dragging = true;
       lastX = e.clientX;
@@ -155,18 +155,21 @@ export function createCameras(renderer, ctx) {
       controls.update();
     }
     releaseAt = Infinity;
-  });
-  window.addEventListener('pointerup', () => {
+  };
+  const onUp = () => {
     dragging = false;
     if (manual) releaseAt = time + 2;
-  });
-  window.addEventListener('pointermove', (e) => {
+  };
+  const onMove = (e) => {
     if (!dragging) return;
     yaw = THREE.MathUtils.clamp(yaw - (e.clientX - lastX) * 0.004, -2.1, 2.1);
     pitch = THREE.MathUtils.clamp(pitch - (e.clientY - lastY) * 0.004, -1.05, 1.05);
     lastX = e.clientX;
     lastY = e.clientY;
-  });
+  };
+  dom.addEventListener('pointerdown', onDown);
+  window.addEventListener('pointerup', onUp);
+  window.addEventListener('pointermove', onMove);
   controls.addEventListener('start', () => { releaseAt = Infinity; });
 
   function setMode(m) {
@@ -263,6 +266,11 @@ export function createCameras(renderer, ctx) {
     update,
     snap,
     focus: () => current.look,
-    dispose() { controls.dispose(); },
+    dispose() {
+      controls.dispose();
+      dom.removeEventListener('pointerdown', onDown);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointermove', onMove);
+    },
   };
 }
