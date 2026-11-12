@@ -28,11 +28,12 @@ export function mountHud(parent, { director, cameras, audio }) {
   const volume = h('input', { cls: 'hud-volume', attrs: { type: 'range', min: '0', max: '1', step: '0.05', value: '0.8', 'aria-label': 'volume' } });
   const caption = h('div', { cls: 'scene-caption' });
   const hint = h('div', { cls: 'hud-hint', text: 'hud.hint' });
+  const flash = h('div', { cls: 'view-flash' });
   let muted = false;
   let captionKey = null;
 
   const controls = h('div', { cls: 'hud-controls' }, [view, pause, next, h('div', { cls: 'hud-sound' }, [mute, volume])]);
-  const root = h('div', { cls: 'hud' }, [caption, hint, controls]);
+  const root = h('div', { cls: 'hud' }, [flash, caption, hint, controls]);
 
   function render() {
     const first = cameras.mode === 'first';
@@ -43,7 +44,17 @@ export function mountHud(parent, { director, cameras, audio }) {
     if (captionKey) caption.textContent = t(captionKey);
   }
 
-  const toggleView = () => { cameras.toggle(); render(); };
+  let flashTimer = null;
+  const toggleView = () => {
+    // the camera cuts instantly; a quick dip to black hides the jump
+    flash.classList.remove('on');
+    void flash.offsetWidth;
+    flash.classList.add('on');
+    clearTimeout(flashTimer);
+    flashTimer = setTimeout(() => flash.classList.remove('on'), 500);
+    cameras.toggle();
+    render();
+  };
   const togglePause = () => {
     if (director.isPaused()) director.play();
     else director.pause();
@@ -92,6 +103,7 @@ export function mountHud(parent, { director, cameras, audio }) {
     showCaption,
     destroy() {
       clearTimeout(idleTimer);
+      clearTimeout(flashTimer);
       clearTimeout(captionTimer);
       window.removeEventListener('mousemove', wake);
       window.removeEventListener('pointerdown', wake);

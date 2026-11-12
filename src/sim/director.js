@@ -43,8 +43,9 @@ export function createDirector(stage, { godId, gender, startAt = 0, audio = null
   me.override = (sceneId, p) => {
     if (sceneId !== 'dawn') return null;
     const wa = cab.userData.worldAnchors;
-    if (p < 0.4) return { pos: new THREE.Vector3(1.6, 0.2, -3.2).applyMatrix4(cab.matrixWorld), pose: 'idle', face: wa.window.clone().add(wa.window.clone().sub(wa.sound).setY(0).multiplyScalar(3)) };
-    if (p < 0.58) return { pos: wa.door.clone(), pose: 'idle', face: ctx.anchors.green };
+    if (p < 0.4) return { pos: cab.userData.anchors.windowSide.clone().applyMatrix4(cab.matrixWorld), pose: 'idle', face: wa.window.clone().add(wa.window.clone().sub(wa.sound).setY(0).multiplyScalar(3)) };
+    // walk out ahead of (and beside) the camera so 'me' never blocks the doorway shot
+    if (p < 0.62) return { pos: new THREE.Vector3(1.8, 0, 11 / 2 + 7.5).applyMatrix4(cab.matrixWorld), pose: 'idle', face: ctx.anchors.green };
     return null;
   };
   ctx.player = player;
@@ -69,6 +70,7 @@ export function createDirector(stage, { godId, gender, startAt = 0, audio = null
   cameras.snap(s0.id, sceneProgress(clock.elapsed()));
 
   const interior = cab.getObjectByName('interior');
+  const homeDoor = cab.getObjectByName('door');
   const campfire = world.facilities.campfire;
   const brazier = world.facilities.brazierFire;
   const fireA = new THREE.Color();
@@ -85,6 +87,9 @@ export function createDirector(stage, { godId, gender, startAt = 0, audio = null
     pegasi.update(dt, s.id, p);
     cameras.update(dt, s.id, p);
     const sky = world.update(dt, tod, cameras.focus());
+
+    // the front door swings open just before we walk out (and stays open for the day)
+    if (homeDoor) homeDoor.rotation.y = 1.7 * (s.id === 'dawn' ? THREE.MathUtils.smoothstep(p, 0.4, 0.47) : 1);
 
     // cabin lamp only before the camp is fully awake
     if (interior) interior.children.find((c) => c.isPointLight).intensity = s.id === 'dawn' ? 8 : 0;

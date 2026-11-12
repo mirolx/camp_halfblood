@@ -46,29 +46,59 @@ export function createCameras(renderer, ctx) {
     return local.clone().applyMatrix4(cab.matrixWorld);
   }
 
+  const yawTo = (a, b) => Math.atan2(b.x - a.x, b.z - a.z);
+  const lerpAngle = (a, b, k) => a + Math.atan2(Math.sin(b - a), Math.cos(b - a)) * k;
+  function yawLook(out, yaw, pitch = 0) {
+    out.look.set(out.pos.x + Math.sin(yaw) * 20, out.pos.y + Math.tan(pitch) * 20, out.pos.z + Math.cos(yaw) * 20);
+  }
+  /** Straight out of the back window, turned toward the lake as far as the window frame allows. */
+  function dawnWindowYaw(inWindow) {
+    const outward = yawTo(inWindow, cabinPoint(new THREE.Vector3(0, 1.6, -40)));
+    const lake = yawTo(inWindow, { x: LAYOUT.lake.x, z: LAYOUT.lake.z });
+    const diff = Math.atan2(Math.sin(lake - outward), Math.cos(lake - outward));
+    return outward + THREE.MathUtils.clamp(diff, -0.5, 0.5);
+  }
+  let pathCache = null;
+  function dawnPath(cab) {
+    if (pathCache?.cab === cab) return pathCache.curve;
+    const D = 11;
+    const pts = [
+      new THREE.Vector3(0, 1.6, -D / 2 + 0.25 + 0.85),
+      new THREE.Vector3(1.0, 1.6, -2.2),
+      new THREE.Vector3(0.6, 1.6, 1.8),
+      new THREE.Vector3(0, 1.7, D / 2 - 0.4),
+      new THREE.Vector3(0, 1.8, D / 2 + 4),
+    ].map((v) => cabinPoint(v));
+    pathCache = { cab, curve: new THREE.CatmullRomCurve3(pts) };
+    return pathCache.curve;
+  }
+
   function scripted(sceneId, p, out) {
     const t = time;
     switch (sceneId) {
       case 'dawn': {
         const D = 11;
-        const inWindow = cabinPoint(new THREE.Vector3(-0.6, 1.55, -D / 2 + 1.6));
-        const windowLook = cabinPoint(new THREE.Vector3(0.6, 0.6, -40));
-        const inDoor = cabinPoint(new THREE.Vector3(0, 1.6, D / 2 - 1.2));
+        const cab = ctx.cabins.get(ctx.homeCabin);
+        const inWindow = cabinPoint(cab.userData.anchors.window);
         const outDoor = cabinPoint(new THREE.Vector3(0, 1.8, D / 2 + 4));
         const greenHigh = W(anchors.green).add(new THREE.Vector3(26, 30, 42));
+        const windowYaw = dawnWindowYaw(inWindow);
         if (p < 0.38) {
-          // at the window, a slow drift while the conch sounds
-          out.pos.copy(inWindow).add(new THREE.Vector3(Math.sin(t * 0.2) * 0.05, Math.sin(t * 0.3) * 0.03, 0));
-          out.look.copy(windowLook);
-        } else if (p < 0.58) {
-          const k = ease(seg(p, 0.38, 0.58));
-          out.pos.lerpVectors(inWindow, inDoor, k);
-          out.look.lerpVectors(windowLook, outDoor, Math.min(k * 1.6, 1));
-          if (k > 0.6) out.pos.lerpVectors(inDoor, outDoor, ease((k - 0.6) / 0.4));
+          // at the big back window, a slow breathing drift while the conch sounds
+          out.pos.copy(inWindow).add(new THREE.Vector3(0, Math.sin(t * 0.3) * 0.03, 0));
+          yawLook(out, windowYaw + Math.sin(t * 0.15) * 0.06, -0.12);
+        } else if (p < 0.6) {
+          // turn around and walk out through the room and the front door
+          const k = ease(seg(p, 0.38, 0.6));
+          dawnPath(cab).getPoint(k, out.pos);
+          const doorYaw = yawTo(outDoor, W(anchors.green));
+          yawLook(out, lerpAngle(windowYaw, doorYaw, ease(seg(k, 0, 0.45))), -0.08);
         } else {
-          const k = ease(seg(p, 0.58, 1));
+          const k = ease(seg(p, 0.6, 1));
           out.pos.lerpVectors(outDoor, greenHigh, k);
-          out.look.lerpVectors(W(anchors.green).setY(2), W(anchors.green), k);
+          const ground = W(anchors.green).setY(1.6);
+          const lookFrom = outDoor.clone().add(new THREE.Vector3(Math.sin(yawTo(outDoor, ground)) * 20, -0.4, Math.cos(yawTo(outDoor, ground)) * 20));
+          out.look.lerpVectors(lookFrom, W(anchors.green), k);
         }
         return;
       }
@@ -174,14 +204,15 @@ export function createCameras(renderer, ctx) {
 
   function setMode(m) {
     if (m === mode) return;
-    from.pos.copy(camera.position);
-    from.look.copy(current.look);
-    blend = 0;
+    // hard cut (the HUD covers it with a short fade) — gliding between the two views
+    // dragged the camera through walls and the player's own body
+    blend = 1;
     mode = m;
     yaw = 0;
     pitch = 0;
     if (manual) { manual = false; controls.enabled = false; }
-    ctx.player.userData.head.visible = m !== 'first';
+    // in first person the camera sits inside 'me': hide the whole body so it can't fill the view
+    ctx.player.visible = m !== 'first';
   }
 
   const eyeLook = new THREE.Vector3();

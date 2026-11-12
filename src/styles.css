@@ -281,3 +281,14 @@ body[data-screen='end'] #stage { filter: brightness(0.5); transition: filter 2s 
   cursor: pointer;
 }
 .ghost-button:hover { background: rgba(255, 255, 255, 0.08); }
+
+.view-flash {
+  position: absolute;
+  inset: 0;
+  background: #05070c;
+  opacity: 0;
+  pointer-events: none;
+}
+.view-flash.on { animation: view-flash 0.45s ease-out; }
+@keyframes view-flash { from { opacity: 1; } to { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .view-flash.on { animation-duration: 0.01s; } }

@@ -65,7 +65,12 @@ export function createCrowd(scene, ctx, { count = 40, seed = 11 } = {}) {
       case 'dawn': {
         // spill out of the cabins onto the green as the morning goes on
         const out = progress > 0.35 + (i % 7) * 0.06;
-        if (!out) return { pos: door.clone().add(new THREE.Vector3(m.jitter.x, 0, m.jitter.y)), pose: 'idle', face: anchors.green };
+        if (!out) {
+          // wait beside the porch, not in front of the doorway (the camera walks out through it)
+          const fwd = new THREE.Vector3(door.x - cab.position.x, 0, door.z - cab.position.z).normalize();
+          const side = new THREE.Vector3(-fwd.z, 0, fwd.x).multiplyScalar(i % 2 ? 2.8 + m.jitter.x : -2.8 - m.jitter.x);
+          return { pos: onGround(door.clone().add(side).addScaledVector(fwd, 0.5)), pose: 'idle', face: anchors.green };
+        }
         const a = (i / members.length) * Math.PI * 2;
         return { pos: ringPoint(anchors.green, 6 + (i % 5) * 1.8, a), pose: 'idle', face: anchors.green };
       }

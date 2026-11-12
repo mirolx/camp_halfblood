@@ -63,6 +63,15 @@ describe('hud', () => {
     expect(f.cameras.toggle).toHaveBeenCalledTimes(2);
   });
 
+  test('switching view flashes a short fade over the cut', () => {
+    const f = fakes();
+    mountHud(app(), f);
+    app().querySelector('.hud-view').click();
+    expect(document.querySelector('.view-flash').classList.contains('on')).toBe(true);
+    vi.advanceTimersByTime(600);
+    expect(document.querySelector('.view-flash').classList.contains('on')).toBe(false);
+  });
+
   test('Space and the pause button toggle pause', () => {
     const f = fakes();
     mountHud(app(), f);

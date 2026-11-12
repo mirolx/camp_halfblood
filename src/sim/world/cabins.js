@@ -174,7 +174,7 @@ function addInteriorProps(id, g, s, h) {
       break;
     case 'ares':
       for (let i = 0; i < 5; i++) {
-        const sp = cyl(0.025, 0.025, 2.4, std('#5a5a5a', { metal: 0.8 }), -1.2 + i * 0.6, 1.3, back + 0.3, g, 6);
+        const sp = cyl(0.025, 0.025, 2.4, std('#5a5a5a', { metal: 0.8 }), 2.0 + i * 0.35, 1.3, back + 0.3, g, 6);
         sp.rotation.x = 0.1;
       }
       break;
@@ -188,7 +188,7 @@ function addInteriorProps(id, g, s, h) {
       break;
     case 'apollo': {
       const lyre = new THREE.Mesh(new THREE.TorusGeometry(0.35, 0.04, 6, 16, Math.PI), s.trim);
-      lyre.position.set(0, 1.8, back + 0.2);
+      lyre.position.set(2.7, 1.8, back + 0.2);
       lyre.rotation.z = Math.PI;
       g.add(lyre);
       break;
@@ -196,7 +196,7 @@ function addInteriorProps(id, g, s, h) {
     case 'artemis': {
       for (let i = 0; i < 3; i++) {
         const bow = new THREE.Mesh(new THREE.TorusGeometry(0.6, 0.025, 5, 20, Math.PI * 0.8), s.trim);
-        bow.position.set(-1.5 + i * 1.5, 1.8, back + 0.15);
+        bow.position.set(i === 1 ? 3.0 : -3.0, 1.8 - (i === 2 ? 0.6 : 0), back + 0.15);
         bow.rotation.z = Math.PI * 0.6;
         g.add(bow);
       }
@@ -207,16 +207,16 @@ function addInteriorProps(id, g, s, h) {
       break;
     }
     case 'hephaestus':
-      box(2.4, 0.9, 1.0, std('#4a3f35'), 0, 0.45, back + 0.7, g);
+      box(1.6, 0.9, 1.0, std('#4a3f35'), -2.6, 0.45, back + 0.7, g);
       for (let i = 0; i < 3; i++) {
         const gear = new THREE.Mesh(new THREE.TorusGeometry(0.2 + i * 0.05, 0.05, 6, 10), s.trim);
-        gear.position.set(-0.7 + i * 0.7, 1.0, back + 0.7);
+        gear.position.set(-3.1 + i * 0.5, 1.0, back + 0.7);
         gear.rotation.x = Math.PI / 2;
         g.add(gear);
       }
       break;
     case 'aphrodite':
-      box(1.2, 2.0, 0.08, std('#dfe6ee', { metal: 1, rough: 0.05 }), 0, 1.4, back + 0.1, g);
+      box(1.0, 2.0, 0.08, std('#dfe6ee', { metal: 1, rough: 0.05 }), -2.9, 1.4, back + 0.1, g);
       box(1.6, 2.4, 0.6, std('#f6f0f2'), 2.2, 1.2, back + 0.35, g);
       break;
     case 'hermes':
@@ -255,7 +255,9 @@ export function buildCabin(id, { interior = false } = {}) {
   box(W, 0.2, D, std('#8a6a4a'), 0, 0.1, 0, g);
   const front = wall(W, h, T, s.wall, [{ x: 0, w: 1.4, y0: 0, y1: 2.4 }, { x: -2.5, w: 1.2, y0: 1.1, y1: 2.3 }, { x: 2.5, w: 1.2, y0: 1.1, y1: 2.3 }], g);
   front.position.z = D / 2 - T / 2;
-  const backWall = wall(W, h, T, s.wall, [{ x: 0, w: 2.2, y0: 1.0, y1: 2.5 }], g);
+  // the home cabin gets a big picture window at the back (the dawn shot looks out of it)
+  const backWin = interior ? { x: 0, w: 3.4, y0: 0.75, y1: 2.85 } : { x: 0, w: 2.2, y0: 1.0, y1: 2.5 };
+  const backWall = wall(W, h, T, s.wall, [backWin], g);
   backWall.position.z = -D / 2 + T / 2;
   for (const side of [-1, 1]) {
     const sw = wall(D - T * 2, h, T, s.wall, [{ x: -2, w: 1.4, y0: 1.1, y1: 2.3 }, { x: 2, w: 1.4, y0: 1.1, y1: 2.3 }], g);
@@ -279,10 +281,9 @@ export function buildCabin(id, { interior = false } = {}) {
   door.position.x = 0.65 + 0;
   door.name = 'door';
   const glass = std('#9fc4d8', { rough: 0.05, metal: 0.1, transparent: true, opacity: 0.25 });
-  for (const [x, z, w, rot] of [[-2.5, D / 2, 1.2, 0], [2.5, D / 2, 1.2, 0], [0, -D / 2, 2.2, 0]]) {
-    const pane = new THREE.Mesh(new THREE.PlaneGeometry(w, 1.2), glass);
-    pane.position.set(x, 1.7, z - Math.sign(z) * T / 2);
-    pane.rotation.y = rot;
+  for (const [x, z, w, ph, py] of [[-2.5, D / 2, 1.2, 1.2, 1.7], [2.5, D / 2, 1.2, 1.2, 1.7], [0, -D / 2, backWin.w, backWin.y1 - backWin.y0, (backWin.y0 + backWin.y1) / 2]]) {
+    const pane = new THREE.Mesh(new THREE.PlaneGeometry(w, ph), glass);
+    pane.position.set(x, py, z - Math.sign(z) * T / 2);
     g.add(pane);
   }
 
@@ -319,7 +320,8 @@ export function buildCabin(id, { interior = false } = {}) {
 
   g.userData.anchors = {
     door: new THREE.Vector3(0, 0, D / 2 + 2.2),
-    window: new THREE.Vector3(0, 1.65, -D / 2 + 1.1), // standing at the back window looking out
+    window: new THREE.Vector3(0, 1.6, -D / 2 + T + 0.85), // camera spot right at the back window
+    windowSide: new THREE.Vector3(1.35, 0.2, -D / 2 + 1.1), // where 'me' stands beside it
     bed: new THREE.Vector3(W / 2 - 0.8, 0.9, -1.8),
     sound: new THREE.Vector3(0, 1.5, 0),
   };
