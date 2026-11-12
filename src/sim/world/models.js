@@ -6,6 +6,7 @@ const BASE = `${import.meta.env?.BASE_URL ?? '/'}assets/models/`;
 export const CABIN_MODELS = {
   zeus: { file: 'zeus_cabin.glb', root: 'ZEUS_CABIN' },
   poseidon: { file: 'poseidon_cabin.glb', root: 'POSEIDON_CABIN' },
+  demeter: { file: 'demeter_cabin.glb', root: 'DEMETER_CABIN' },
   hephaestus: { file: 'hephaestus_cabin.glb', root: 'HEPHAESTUS_CABIN' },
 };
 
