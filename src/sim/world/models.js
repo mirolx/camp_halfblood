@@ -5,6 +5,7 @@ import * as THREE from 'three';
 const BASE = `${import.meta.env?.BASE_URL ?? '/'}assets/models/`;
 export const CABIN_MODELS = {
   zeus: { file: 'zeus_cabin.glb', root: 'ZEUS_CABIN' },
+  hera: { file: 'hera_cabin.glb', root: 'HERA_CABIN' },
   poseidon: { file: 'poseidon_cabin.glb', root: 'POSEIDON_CABIN' },
   demeter: { file: 'demeter_cabin.glb', root: 'DEMETER_CABIN' },
   ares: { file: 'ares_cabin.glb', root: 'ARES_CABIN' },

@@ -126,6 +126,17 @@ describe('cabin model registry', () => {
     expect(CABIN_MODELS.dionysus).toEqual({ file: 'dionysus_cabin.glb', root: 'DIONYSUS_CABIN' });
   });
 
+  test('hera cabin is registered with its Blender root', async () => {
+    const { CABIN_MODELS } = await import('../src/sim/world/models.js');
+    expect(CABIN_MODELS.hera).toEqual({ file: 'hera_cabin.glb', root: 'HERA_CABIN' });
+  });
+
+  test('every cabin now has a Blender model', async () => {
+    const { CABIN_MODELS } = await import('../src/sim/world/models.js');
+    const { CABIN_IDS } = await import('../src/sim/world/cabins.js');
+    expect(Object.keys(CABIN_MODELS).sort()).toEqual([...CABIN_IDS].sort());
+  });
+
   test('hephaestus uses the model and keeps its anchors', () => {
     const scene = new THREE.Group();
     const root = new THREE.Group();
