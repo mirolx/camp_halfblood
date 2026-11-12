@@ -90,6 +90,7 @@ export function buildPegasus() {
   const wR = wing(1);
   for (const w of [wL, wR]) {
     w.position.set(0, 1.8, 0.35);
+    w.scale.setScalar(1.5);
     g.add(w);
   }
 

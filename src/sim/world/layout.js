@@ -8,7 +8,7 @@ export const LAYOUT = {
   pavilion: { x: 38, z: -36 },
   bigHouse: { x: 40, z: 22 },
   arena: { x: -52, z: 8 },
-  archery: { x: -42, z: -34 },
+  archery: { x: -58, z: -40 },
   stables: { x: 6, z: -54 },
   amphitheater: { x: -30, z: 44 },
   strawberries: { x: 62, z: 44 },

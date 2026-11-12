@@ -11,7 +11,7 @@ export function heightAt(x, z) {
   // rolling base, flattened inside the camp
   const rolling = (fbm(x * 0.012, z * 0.012) - 0.5) * 9;
   const campFlat = THREE.MathUtils.smoothstep(d, 60, 110);
-  let y = rolling * campFlat + (fbm(x * 0.05, z * 0.05) - 0.5) * 0.6;
+  let y = rolling * campFlat + (fbm(x * 0.05, z * 0.05) - 0.5) * 0.2;
 
   // distant ridge so the horizon isn't flat
   y += THREE.MathUtils.smoothstep(d, 170, 290) * (18 + fbm(x * 0.01 + 7, z * 0.01) * 30);

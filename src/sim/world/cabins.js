@@ -311,7 +311,7 @@ export function buildCabin(id, { interior = false } = {}) {
     const myBed = bunk(W / 2 - 0.8, -1.8, inside);
     myBed.name = 'my-bed';
     addInteriorProps(id, inside, s, h);
-    const lamp = new THREE.PointLight('#ffcf8a', 3, 9, 1.5);
+    const lamp = new THREE.PointLight('#ffcf8a', 8, 10, 1.2);
     lamp.position.set(0, h - 0.5, 0.5);
     inside.add(lamp);
     g.add(inside);

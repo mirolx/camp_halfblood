@@ -95,7 +95,7 @@ function arena() {
   const g = new THREE.Group();
   const floor = new THREE.Mesh(new THREE.CircleGeometry(15, 40), SAND);
   floor.rotation.x = -Math.PI / 2;
-  floor.position.y = 0.06;
+  floor.position.y = 0.14;
   floor.receiveShadow = true;
   floor.scale.set(1.3, 1, 1);
   g.add(floor);
@@ -254,7 +254,7 @@ export function createFacilities(scene, heightAt) {
   place(pav.group, L.pavilion, heightAt);
   const ar = place(arena(), L.arena, heightAt);
   const arch = archery();
-  place(arch.group, L.archery, heightAt, faceCenter(L.archery.x, L.archery.z) + Math.PI);
+  place(arch.group, L.archery, heightAt, faceCenter(L.archery.x, L.archery.z));
   const st = place(stables(), L.stables, heightAt, faceCenter(L.stables.x, L.stables.z));
   const amph = amphitheater();
   place(amph.group, L.amphitheater, heightAt, faceCenter(L.amphitheater.x, L.amphitheater.z));

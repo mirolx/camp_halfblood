@@ -120,12 +120,35 @@ export function createPlayer(gender, look = {}) {
   }
   head.add(hair);
 
+  // props: bow in the left hand, bronze sword in the right
+  const bow = new THREE.Group();
+  const bowArc = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.018, 5, 18, Math.PI * 0.75), mat('#5a3b22', { roughness: 0.6 }));
+  bowArc.rotation.set(0, Math.PI / 2, Math.PI * 0.625);
+  const bowString = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.92, 4), mat('#e8e2d0'));
+  bowString.position.z = -0.19;
+  bow.add(bowArc, bowString);
+  bow.position.set(0, -0.58, 0.05);
+  bow.rotation.x = Math.PI / 2;
+  bow.visible = false;
+  arms[0].add(bow);
+  const sword = new THREE.Group();
+  const blade = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.75, 0.015), mat('#c99a4a', { roughness: 0.3 }));
+  blade.position.y = -0.45;
+  const guard = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.03, 0.04), mat('#6a4a2a'));
+  sword.add(blade, guard);
+  sword.position.set(0, -0.6, 0.02);
+  sword.rotation.x = Math.PI;
+  sword.visible = false;
+  arms[1].add(sword);
+
   let pose = 'idle';
   let phase = Math.random() * Math.PI * 2;
 
   function setPose(p) {
     if (!POSES.includes(p)) throw new Error(`Unknown pose: ${p}`);
     pose = p;
+    bow.visible = p === 'drawBow';
+    sword.visible = p === 'swing';
   }
 
   function update(dt, speed = 1) {

@@ -4,9 +4,9 @@ import { Sky } from 'three/examples/jsm/objects/Sky.js';
 // Time of day (tod 0..1: 5:30 dawn → 22:00 night) drives sun, sky, fog, light and stars.
 // Keyframes: [tod, sunElevationDeg, sunIntensity, hemiIntensity, exposure, fogColor, fogDensity, starOpacity]
 const KEYS = [
-  [0.0, 4.5, 0.9, 0.4, 0.7, '#d6c2bb', 0.0042, 0.0],
-  [0.06, 9, 1.8, 0.5, 0.6, '#dcc8b4', 0.003, 0.0],
-  [0.15, 18, 2.4, 0.6, 0.5, '#b9cde0', 0.0016, 0],
+  [0.0, 4.5, 1.1, 0.75, 0.85, '#d6c2bb', 0.0042, 0.0],
+  [0.06, 9, 1.9, 0.7, 0.7, '#dcc8b4', 0.003, 0.0],
+  [0.15, 18, 2.4, 0.65, 0.55, '#b9cde0', 0.0016, 0],
   [0.45, 58, 3.0, 0.6, 0.45, '#b4cbe4', 0.0011, 0],
   [0.6, 32, 2.8, 0.6, 0.47, '#c4ccd6', 0.0013, 0],
   [0.72, 6, 1.8, 0.45, 0.6, '#d89a6c', 0.0022, 0],

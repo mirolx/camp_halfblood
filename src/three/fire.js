@@ -34,7 +34,7 @@ void main() {
   float soft = smoothstep(0.5, 0.0, d);
   vec3 col = mix(uColorA, uColorB, vLife);
   float a = soft * (1.0 - vLife) * 0.85;
-  gl_FragColor = vec4(col * (1.6 - vLife), a);
+  gl_FragColor = vec4(col * (1.15 - vLife * 0.6), a * 0.8);
 }`;
 
 export function createFire({ scale = 1, count = 220 } = {}) {

@@ -54,6 +54,10 @@ export function createCrowd(scene, ctx, { count = 40, seed = 11 } = {}) {
 
   /** Where member m wants to be (and doing what) at a given scene/progress. */
   function targetFor(m, sceneId, progress) {
+    if (m.override) {
+      const o = m.override(sceneId, progress);
+      if (o) return o;
+    }
     const i = m.index;
     const cab = ctx.cabins.get(m.cabinId);
     const door = cab?.userData.worldAnchors.door ?? anchors.green;
@@ -75,8 +79,11 @@ export function createCrowd(scene, ctx, { count = 40, seed = 11 } = {}) {
           const lane = i % targets.length;
           const tgt = targets[lane];
           // stand on the shooting line, 22m in front of the target
-          const dir = tmp.copy(anchors.archery).sub(tgt).setY(0).normalize();
-          const pos = tgt.clone().addScaledVector(dir, 22).add(new THREE.Vector3(m.jitter.x * 1.2, 0, m.jitter.y * 1.2));
+          const mid = targets.reduce((a, v) => a.add(v), new THREE.Vector3()).multiplyScalar(1 / targets.length);
+          const dir = tmp.copy(anchors.archery).sub(mid).setY(0).normalize();
+          const slot = Math.floor(i / targets.length) % 3;
+          const along = new THREE.Vector3(-dir.z, 0, dir.x).multiplyScalar((slot - 1) * 1.1);
+          const pos = tgt.clone().addScaledVector(dir, 22 + slot * 0.4).add(along);
           return { pos: onGround(pos), pose: 'drawBow', face: tgt };
         }
         if (m.role === 'fighter') {
@@ -117,9 +124,11 @@ export function createCrowd(scene, ctx, { count = 40, seed = 11 } = {}) {
         const k = Math.floor(i / 3);
         const fireToCenter = Math.atan2(anchors.green.z - anchors.campfire.z, anchors.green.x - anchors.campfire.x);
         // seats on the far side of the fire from the camp, on the stone tiers
-        const a = fireToCenter + Math.PI + ((k / Math.max(n - 1, 1)) - 0.5) * Math.PI * 1.3;
-        const r = 6.6 + row * 1.3;
-        return { pos: ringPoint(anchors.campfire, r, a, 0.45 * (row + 1) - 0.45), pose: 'sit', face: anchors.campfire, seated: true };
+        const a = fireToCenter + Math.PI + ((k / Math.max(n - 1, 1)) - 0.5) * Math.PI * 0.72;
+        // sit on the stone tiers (tier k: radius 6 + 1.3k, top at 0.45(k+1))
+        const tier = row + 1;
+        const r = 6 + tier * 1.3 - 0.45;
+        return { pos: ringPoint(anchors.campfire, r, a, 0.45 * (tier + 1) - 0.42), pose: 'sit', face: anchors.campfire, seated: true };
       }
     }
   }
