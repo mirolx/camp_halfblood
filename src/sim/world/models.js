@@ -22,6 +22,7 @@ export const CABIN_MODELS = {
 export const FACILITY_MODELS = {
   bigHouse: { file: 'big_house.glb', root: 'BIG_HOUSE' },
   stables: { file: 'stables.glb', root: 'STABLES' },
+  pavilion: { file: 'pavilion.glb', root: 'PAVILION' },
 };
 
 /**

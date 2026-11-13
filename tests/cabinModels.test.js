@@ -167,6 +167,30 @@ describe('Big House model', () => {
     expect(FACILITY_MODELS.stables).toEqual({ file: 'stables.glb', root: 'STABLES' });
   });
 
+  test('the pavilion is registered as a facility model with its Blender root', async () => {
+    const { FACILITY_MODELS } = await import('../src/sim/world/models.js');
+    expect(FACILITY_MODELS.pavilion).toEqual({ file: 'pavilion.glb', root: 'PAVILION' });
+  });
+
+  test('with a pavilion model the table frames stay (empty) for seating, and the offering fire stays', async () => {
+    const THREE = await import('three');
+    const { createFacilities } = await import('../src/sim/world/facilities.js');
+    const model = new THREE.Group();
+    model.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshStandardMaterial()), { name: 'TABLE_00' }));
+    const plain = createFacilities(new THREE.Scene(), () => 0);
+    const f = createFacilities(new THREE.Scene(), () => 0, { models: { pavilion: model } });
+    expect(f.pavilion.getObjectByName('TABLE_00')).toBeTruthy();
+    expect(f.pavilionTables).toHaveLength(12);
+    f.pavilionTables.forEach((t, i) => {
+      expect(t.children).toHaveLength(0);
+      expect(t.position.equals(plain.pavilionTables[i].position)).toBe(true);
+      expect(t.rotation.y).toBe(plain.pavilionTables[i].rotation.y);
+    });
+    expect(f.brazierFire).toBeTruthy();
+    expect(f.modelled).toHaveLength(1);
+    expect(plain.modelled).toHaveLength(0);
+  });
+
   test('facilities place a copy of the loaded stables model', async () => {
     const THREE = await import('three');
     const { createFacilities } = await import('../src/sim/world/facilities.js');

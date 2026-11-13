@@ -51,39 +51,51 @@ function bigHouse() {
   return g;
 }
 
-function pavilion() {
+/**
+ * The dining pavilion. With a Blender `model` (floor, colonnade, brazier bowl and tables drawn in it)
+ * only the logic stays procedural: one empty frame per table, which the campers' seats are
+ * computed from, and the offering fire. Model tables sit on exactly these frames.
+ */
+function pavilion(model = null) {
   const g = new THREE.Group();
   const R = 13;
-  const floor = cyl(R, R + 0.3, 0.6, MARBLE, 0, 0.3, 0, g, 40);
-  floor.receiveShadow = true;
-  for (let i = 0; i < 18; i++) {
-    const a = (i / 18) * Math.PI * 2;
-    column(5.2, 0.32, MARBLE, Math.cos(a) * (R - 0.6), Math.sin(a) * (R - 0.6), g).position.y = 0.6;
+  if (model) {
+    g.add(model);
+  } else {
+    const floor = cyl(R, R + 0.3, 0.6, MARBLE, 0, 0.3, 0, g, 40);
+    floor.receiveShadow = true;
+    for (let i = 0; i < 18; i++) {
+      const a = (i / 18) * Math.PI * 2;
+      column(5.2, 0.32, MARBLE, Math.cos(a) * (R - 0.6), Math.sin(a) * (R - 0.6), g).position.y = 0.6;
+    }
+    // ring architrave, no roof (canon: open to the sky)
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(R - 0.6, 0.35, 6, 48), MARBLE);
+    ring.rotation.x = Math.PI / 2;
+    ring.position.y = 6.0;
+    ring.castShadow = true;
+    g.add(ring);
   }
-  // ring architrave, no roof (canon: open to the sky)
-  const ring = new THREE.Mesh(new THREE.TorusGeometry(R - 0.6, 0.35, 6, 48), MARBLE);
-  ring.rotation.x = Math.PI / 2;
-  ring.position.y = 6.0;
-  ring.castShadow = true;
-  g.add(ring);
-  // tables: one per cabin, radial
+  // tables: one per cabin, radial (benches along x at z = +-0.95, top 0.49; campers.js seats on them)
   const tables = [];
   for (let i = 0; i < 12; i++) {
     const a = (i / 12) * Math.PI * 2 + 0.13;
     const t = new THREE.Group();
+    t.name = `table-${i}`;
     t.position.set(Math.cos(a) * 7.8, 0.6, Math.sin(a) * 7.8);
     t.rotation.y = -a;
-    box(3.6, 0.12, 1.1, std('#d9d1bf', { rough: 0.4 }), 0, 0.85, 0, t);
-    for (const sz of [-0.95, 0.95]) box(3.4, 0.08, 0.45, WOOD, 0, 0.45, sz, t);
-    for (const sx of [-1.5, 1.5]) box(0.12, 0.8, 0.8, WOOD, sx, 0.4, 0, t);
-    for (let k = 0; k < 6; k++) cyl(0.14, 0.12, 0.04, WHITE, -1.4 + k * 0.56, 0.93, (k % 2 ? 0.3 : -0.3), t, 10);
+    if (!model) {
+      box(3.6, 0.12, 1.1, std('#d9d1bf', { rough: 0.4 }), 0, 0.85, 0, t);
+      for (const sz of [-0.95, 0.95]) box(3.4, 0.08, 0.45, WOOD, 0, 0.45, sz, t);
+      for (const sx of [-1.5, 1.5]) box(0.12, 0.8, 0.8, WOOD, sx, 0.4, 0, t);
+      for (let k = 0; k < 6; k++) cyl(0.14, 0.12, 0.04, WHITE, -1.4 + k * 0.56, 0.93, (k % 2 ? 0.3 : -0.3), t, 10);
+    }
     g.add(t);
     tables.push(t);
   }
   // central brazier for offerings
   const brazier = new THREE.Group();
   brazier.position.y = 0.6;
-  cyl(0.9, 0.6, 1.0, std('#8a6a2a', { metal: 0.8, rough: 0.35 }), 0, 0.5, 0, brazier, 16);
+  if (!model) cyl(0.9, 0.6, 1.0, std('#8a6a2a', { metal: 0.8, rough: 0.35 }), 0, 0.5, 0, brazier, 16);
   const fire = createFire({ scale: 0.7, count: 140 });
   fire.group.position.y = 0.85;
   brazier.add(fire.group);
@@ -271,7 +283,8 @@ export function createFacilities(scene, heightAt, { models = {} } = {}) {
   // the Blender Big House (front toward +Z, like the procedural one) when it loaded
   const bh = place(models.bigHouse ? models.bigHouse.clone(true) : bigHouse(), L.bigHouse, heightAt, faceCenter(L.bigHouse.x, L.bigHouse.z));
   bh.name = 'big-house';
-  const pav = pavilion();
+  const pavModel = models.pavilion ? models.pavilion.clone(true) : null;
+  const pav = pavilion(pavModel);
   place(pav.group, L.pavilion, heightAt);
   const ar = place(arena(), L.arena, heightAt);
   const arch = archery();
@@ -316,5 +329,8 @@ export function createFacilities(scene, heightAt, { models = {} } = {}) {
     gate,
     bigHouse: bh,
     stables: st,
+    pavilion: pav.group,
+    // the Blender models actually placed (index.js gives them reflections and real fire at *_flame spots)
+    modelled: [models.bigHouse && bh, models.stables && st, pavModel].filter(Boolean),
   };
 }

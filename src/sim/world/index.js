@@ -24,7 +24,7 @@ export function buildWorld(scene, renderer, { interiorFor = 'hermes', models = {
   const metals = []; // every model material with its daytime reflection strength
   const fires = [];
   const modelled = [...cabins.values()].map((c) => c.getObjectByName(`model-${c.userData.id}`));
-  for (const k of ['bigHouse', 'stables']) if (models[k]) modelled.push(facilities[k]);
+  modelled.push(...facilities.modelled);
   for (const model of modelled) {
     if (!model) continue;
     applyEnvironment(model, env);
