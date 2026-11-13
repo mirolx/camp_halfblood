@@ -6,6 +6,7 @@ import { layoutCabins } from '../src/sim/world/cabins.js';
 import { createFacilities } from '../src/sim/world/facilities.js';
 import { heightAt } from '../src/sim/world/terrain.js';
 import { SCENES } from '../src/sim/timeline.js';
+import { LAYOUT, inLake } from '../src/sim/world/layout.js';
 
 function ctx() {
   const scene = new THREE.Scene();
@@ -68,6 +69,41 @@ describe('crowd', () => {
       }
     }
     expect(visits).toBeGreaterThan(0);
+  });
+
+  test('pegasus watchers stand outside the stables and out of the lake', () => {
+    const c = ctx();
+    const crowd = createCrowd(c.scene, c, { count: 36 });
+    crowd.addMember(new THREE.Group(), { cabinId: 'apollo', role: 'archer', isPlayer: true, index: 0 });
+    const S = LAYOUT.stables;
+    const rot = Math.atan2(-S.x, -S.z); // the stables face the camp centre
+    for (const m of crowd.members) {
+      const { pos } = crowd.targetFor(m, 'pegasus', 0.5);
+      // into the stables' own frame: 16m x 8m building around the anchor
+      const dx = pos.x - S.x;
+      const dz = pos.z - S.z;
+      const lx = dx * Math.cos(rot) - dz * Math.sin(rot);
+      const lz = dx * Math.sin(rot) + dz * Math.cos(rot);
+      expect(Math.abs(lx) < 8.6 && Math.abs(lz) < 4.6, `${m.name} inside stables`).toBe(false);
+      expect(inLake(pos.x, pos.z), `${m.name} in the lake`).toBeGreaterThan(1.05);
+    }
+  });
+
+  test('the player never shares a spot with a camper (first person would sit inside their head)', () => {
+    const c = ctx();
+    const crowd = createCrowd(c.scene, c, { count: 36 });
+    const me = crowd.addMember(new THREE.Group(), { cabinId: 'apollo', role: 'archer', isPlayer: true, index: 0 });
+    for (const s of SCENES) {
+      for (const p of [0.2, 0.6, 0.95]) {
+        if (s.id === 'dawn' && p < 0.62) continue; // the director scripts 'me' at the window then
+        const mine = crowd.targetFor(me, s.id, p).pos;
+        for (const m of crowd.members) {
+          if (m === me) continue;
+          const d = crowd.targetFor(m, s.id, p).pos.distanceTo(mine);
+          expect(d, `${s.id} @${p} vs ${m.name}`).toBeGreaterThan(0.5);
+        }
+      }
+    }
   });
 });
 

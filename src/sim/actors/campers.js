@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { createPlayer } from '../../three/player.js';
 import { CABIN_IDS } from '../world/cabins.js';
 import { rng } from '../world/noise.js';
+import { LAYOUT, inLake } from '../world/layout.js';
 
 const WALK = 1.5; // m/s
 const JOG = 3.2;
@@ -38,7 +39,9 @@ export function createCrowd(scene, ctx, { count = 40, seed = 11 } = {}) {
     const cabinId = CABIN_IDS.filter((c) => c !== 'hera' && c !== 'artemis')[i % 10];
     const role = i % 5 === 4 ? 'watcher' : i % 2 ? 'fighter' : 'archer';
     scene.add(mesh);
-    addMember(mesh, { cabinId, role });
+    // index 0 is the player's slot (the director adds 'me' with index 0); every spot below is
+    // a function of the index, so a camper sharing it would stand exactly where the player does
+    addMember(mesh, { cabinId, role, index: i + 1 });
   }
 
   const tmp = new THREE.Vector3();
@@ -50,6 +53,50 @@ export function createCrowd(scene, ctx, { count = 40, seed = 11 } = {}) {
 
   function ringPoint(center, radius, angle, lift = 0) {
     return onGround(new THREE.Vector3(center.x + Math.cos(angle) * radius, 0, center.z + Math.sin(angle) * radius), lift);
+  }
+
+  const tableOf = (m) => CABIN_IDS.indexOf(m.cabinId) % ctx.pavilionTables.length;
+  // the player sits first at their table, then campers in index order: 6 seats a side
+  let slots = null;
+  let slotsFor = -1;
+  function seatSlot(m) {
+    if (slotsFor !== members.length) {
+      slots = new Map();
+      const taken = new Map();
+      const order = [...members].sort((a, b) => b.isPlayer - a.isPlayer || a.index - b.index);
+      for (const x of order) {
+        const t = tableOf(x);
+        const n = taken.get(t) ?? 0;
+        slots.set(x, n);
+        taken.set(t, n + 1);
+      }
+      slotsFor = members.length;
+    }
+    return slots.get(m) ?? 0;
+  }
+
+  // Pegasus watchers. The stables are a 16m x 8m barn around their anchor; stand in an arc on its
+  // lake side, clear of the walls (half-diagonal ~9m) so nobody looks at the flights through the roof.
+  const S = LAYOUT.stables;
+  const toLake = Math.atan2(LAYOUT.lake.z - S.z, LAYOUT.lake.x - S.x);
+  function stablesSpot(i) {
+    const k = Math.floor(i / 2); // stables get the even indices: rows of six, one spot each
+    const row = Math.floor(k / 6);
+    const a = toLake + ((k % 6) - 2.5) * 0.2 + (row % 2) * 0.1;
+    const r = 11.5 + row * 2.2;
+    return onGround(new THREE.Vector3(S.x + Math.cos(a) * r, 0, S.z + Math.sin(a) * r));
+  }
+  // On the shore side of the dock, never out in the water.
+  const D = LAYOUT.dock;
+  const L = LAYOUT.lake;
+  const shoreward = Math.atan2(D.z - L.z, D.x - L.x);
+  function dockSpot(i) {
+    const k = Math.floor(i / 2);
+    const a = shoreward + ((k * 7) % 11 / 10 - 0.5) * 2.2;
+    for (let r = 5 + (k % 3) * 2; ; r += 1.5) {
+      const p = new THREE.Vector3(D.x + Math.cos(a) * r, 0, D.z + Math.sin(a) * r);
+      if (inLake(p.x, p.z) > 1.1 || r > 30) return onGround(p);
+    }
   }
 
   /** Where member m wants to be (and doing what) at a given scene/progress. */
@@ -103,16 +150,16 @@ export function createCrowd(scene, ctx, { count = 40, seed = 11 } = {}) {
       }
       case 'pegasus': {
         // gather by the lake shore and stables to watch the flights
-        const spot = i % 2 ? anchors.dock : anchors.stables;
-        const pos = ringPoint(spot, 6 + (i % 4) * 2, i * 1.1);
-        return { pos, pose: 'idle', face: anchors.lake, lookUp: true };
+        return { pos: i % 2 ? dockSpot(i) : stablesSpot(i), pose: 'idle', face: anchors.lake, lookUp: true };
       }
       case 'dinner': {
         const tables = ctx.pavilionTables;
-        const table = tables[CABIN_IDS.indexOf(m.cabinId) % tables.length];
+        const table = tables[tableOf(m)];
         table.updateMatrixWorld(true);
-        const seat = ((i * 7) % 6) - 2.5;
-        const sideZ = i % 2 ? 0.95 : -0.95;
+        // seats are handed out per table so nobody sits on someone else's lap
+        const k = seatSlot(m);
+        const seat = (Math.floor(k / 2) % 6) - 2.5;
+        const sideZ = k % 2 ? 0.95 : -0.95;
         const seatPos = new THREE.Vector3(seat * 0.6, -0.15, sideZ).applyMatrix4(table.matrixWorld);
         // offering window: each camper visits the brazier once in the first half
         const start = m.offerSlot * 0.4;
