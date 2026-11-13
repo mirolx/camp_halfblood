@@ -28,7 +28,11 @@ html, body {
   width: 100%;
   height: 100%;
   display: block;
+  touch-action: none;
+  cursor: grab;
 }
+
+#stage.dragging { cursor: grabbing; }
 
 #app {
   position: fixed;
@@ -37,6 +41,8 @@ html, body {
 }
 
 #app > * { pointer-events: auto; }
+/* the sim HUD spans the whole screen: let drags reach the canvas, only its controls take clicks */
+#app > .hud { pointer-events: none; }
 
 .lang-toggle {
   position: fixed;

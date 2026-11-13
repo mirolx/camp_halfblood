@@ -77,6 +77,7 @@ export function mountHud(parent, { director, cameras, audio }) {
     if (e.key === 'v' || e.key === 'V') toggleView();
     else if (e.key === ' ') { e.preventDefault(); togglePause(); }
     else if (e.key === 'n' || e.key === 'N') director.skipToNextScene();
+    else if (e.key === 'r' || e.key === 'R') cameras.resetLook();
     wake();
   };
   window.addEventListener('mousemove', wake);
