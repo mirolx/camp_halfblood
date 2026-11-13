@@ -188,7 +188,8 @@ export function createCrowd(scene, ctx, { count = 40, seed = 11 } = {}) {
           const slot = Math.floor(k / targets.length) % 3;
           const along = new THREE.Vector3(-dir.z, 0, dir.x).multiplyScalar((slot - 1) * 1.1);
           const pos = tgt.clone().addScaledVector(dir, 22 + slot * 0.4).add(along);
-          return { pos: onGround(pos), pose: 'drawBow', face: tgt };
+          // every third archer shoots in the duelists' bronze cuirass (the player, rank 0, never)
+          return { pos: onGround(pos), pose: 'drawBow', face: tgt, armor: k % 3 === 2 };
         }
         if (m.role === 'fighter') return arenaSpot(m);
         return { pos: ringPoint(anchors.arena, 15.5, i * 0.7), pose: 'idle', face: anchors.arena };
