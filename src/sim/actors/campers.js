@@ -75,6 +75,42 @@ export function createCrowd(scene, ctx, { count = 40, seed = 11 } = {}) {
     return slots.get(m) ?? 0;
   }
 
+  // Arena: one fighter per training dummy (an odd one out takes a dummy's far side), everyone
+  // else paired off into duels on open sand between the dummies.
+  const DUEL_SPOTS = [[-3.5, -1], [3.5, 1.5], [0, -8.5], [0, 8.5], [-9, -10.5], [9, 10.5], [-13.5, 0.5], [13.5, -0.5], [9, -10.5], [-9, 10.5]];
+  let arenaRoles = null;
+  let arenaFor = -1;
+  function arenaRole(m) {
+    if (arenaFor !== members.length) {
+      arenaRoles = new Map();
+      const fighters = members.filter((x) => x.role === 'fighter').sort((a, b) => a.index - b.index);
+      const dummies = ctx.arenaDummies.length;
+      const hitters = Math.min(fighters.length, dummies + ((fighters.length - dummies) % 2));
+      fighters.forEach((x, k) => {
+        if (k < hitters) arenaRoles.set(x, { kind: 'dummy', dummy: k % dummies, far: k >= dummies });
+        else arenaRoles.set(x, { kind: 'duel', pair: Math.floor((k - hitters) / 2), side: (k - hitters) % 2 ? 1 : -1 });
+      });
+      arenaFor = members.length;
+    }
+    return arenaRoles.get(m);
+  }
+  function arenaSpot(m) {
+    const r = arenaRole(m);
+    const A = anchors.arena;
+    if (r.kind === 'dummy') {
+      const d = ctx.arenaDummies[r.dummy];
+      // stand on the arena-centre side of the dummy (or the far side), a sword's reach away
+      const out = Math.sign(d.x - A.x) * (r.far ? 1 : -1);
+      return { pos: onGround(d.clone().add(new THREE.Vector3(out * 1.15, 0, 0))), pose: 'swing', face: d };
+    }
+    const [cx, cz] = DUEL_SPOTS[r.pair % DUEL_SPOTS.length];
+    const a = r.pair * 1.1 + 0.4;
+    const half = new THREE.Vector3(Math.cos(a), 0, Math.sin(a)).multiplyScalar(0.85);
+    const c = new THREE.Vector3(A.x + cx, 0, A.z + cz);
+    const foe = c.clone().addScaledVector(half, -r.side);
+    return { pos: onGround(c.clone().addScaledVector(half, r.side)), pose: 'swing', face: foe, armor: true };
+  }
+
   // Pegasus watchers. The stables are a 16m x 8m barn around their anchor; stand in an arc on its
   // lake side, clear of the walls (half-diagonal ~9m) so nobody looks at the flights through the roof.
   const S = LAYOUT.stables;
@@ -138,14 +174,7 @@ export function createCrowd(scene, ctx, { count = 40, seed = 11 } = {}) {
           const pos = tgt.clone().addScaledVector(dir, 22 + slot * 0.4).add(along);
           return { pos: onGround(pos), pose: 'drawBow', face: tgt };
         }
-        if (m.role === 'fighter') {
-          const pair = Math.floor(i / 2);
-          const a = pair * 1.3;
-          const c = ringPoint(anchors.arena, 3 + (pair % 4) * 2.2, a);
-          const side = i % 2 ? 1 : -1;
-          const pos = c.clone().add(new THREE.Vector3(Math.cos(a + 1.57) * side, 0, Math.sin(a + 1.57) * side));
-          return { pos: onGround(pos), pose: 'swing', face: c };
-        }
+        if (m.role === 'fighter') return arenaSpot(m);
         return { pos: ringPoint(anchors.arena, 15.5, i * 0.7), pose: 'idle', face: anchors.arena };
       }
       case 'pegasus': {
@@ -229,6 +258,7 @@ export function createCrowd(scene, ctx, { count = 40, seed = 11 } = {}) {
         m.mesh.userData.update(dt);
         if (t.lookUp) m.mesh.userData.head.rotation.x = -0.45;
       }
+      m.mesh.userData.setArmor?.(!!t.armor);
       m.state = t;
     }
   }

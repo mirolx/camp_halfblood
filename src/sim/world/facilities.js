@@ -91,6 +91,9 @@ function pavilion() {
   return { group: g, fire, tables, radius: R };
 }
 
+// training dummies, in the arena's own frame (it is placed unrotated)
+export const ARENA_DUMMIES = [[-8, -4], [-8, 4], [8, -4], [8, 4]];
+
 function arena() {
   const g = new THREE.Group();
   const floor = new THREE.Mesh(new THREE.CircleGeometry(15, 40), SAND);
@@ -107,7 +110,7 @@ function arena() {
     g.add(tier);
   }
   // training dummies
-  for (const [x, z] of [[-8, -4], [-8, 4], [8, -4], [8, 4]]) {
+  for (const [x, z] of ARENA_DUMMIES) {
     cyl(0.08, 0.08, 1.8, DARK_WOOD, x, 0.9, z, g, 6);
     box(1.2, 0.12, 0.12, DARK_WOOD, x, 1.4, z, g);
     sphere(0.25, std('#c9b48d'), x, 1.9, z, g, 8);
@@ -286,6 +289,7 @@ export function createFacilities(scene, heightAt) {
   return {
     anchors,
     archeryTargets: targetWorld,
+    arenaDummies: ARENA_DUMMIES.map(([x, z]) => at({ x: L.arena.x + x, z: L.arena.z + z })),
     pavilionTables: pav.tables,
     brazierFire: pav.fire,
     campfire: amph.fire,

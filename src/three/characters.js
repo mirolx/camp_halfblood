@@ -72,6 +72,62 @@ function painted(base, color) {
   return paintCache.get(key);
 }
 
+// Bronze cuirass for duelists: lathe shells fitted around the torso (radii are fractions of
+// the torso's half-width / half-depth), each riding the bone that bends that part of the body.
+const BRONZE = new THREE.MeshStandardMaterial({ color: '#b8863b', metalness: 0.55, roughness: 0.38 });
+const LEATHER = new THREE.MeshStandardMaterial({ color: '#5a3b22', roughness: 0.85 });
+const lathe = (profile) => new THREE.LatheGeometry(profile.map(([r, y]) => new THREE.Vector2(r, y)), 20);
+const CHEST_PLATE = lathe([[0.86, 1.22], [0.97, 1.31], [1, 1.4], [0.9, 1.47], [0.5, 1.51]]);
+const BELLY_PLATE = lathe([[0.98, 1.0], [0.88, 1.06], [0.83, 1.14], [0.87, 1.25]]);
+const PAULDRON = new THREE.SphereGeometry(0.095, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2);
+const STRAP = new THREE.BoxGeometry(0.075, 0.17, 0.02);
+
+function buildArmor(model, B, gender) {
+  const hips = model.getObjectByName('Hips');
+  const torso = model.getObjectByName('Torso') ?? B.chest;
+  model.updateMatrixWorld(true);
+  const at = (b) => b.getWorldPosition(new THREE.Vector3());
+  const c = at(B.chest);
+  const rx = 0.205;
+  const rz = gender === 'female' ? 0.165 : 0.14; // room for the bust
+  const cz = c.z + (gender === 'female' ? 0.03 : 0.01);
+  const parts = [];
+  const add = (mesh, bone) => {
+    mesh.castShadow = true;
+    mesh.visible = false;
+    model.add(mesh);
+    mesh.updateMatrixWorld(true);
+    bone.attach(mesh); // keep the fitted model-space placement, follow the bone from now on
+    parts.push(mesh);
+  };
+  for (const [geo, bone] of [[CHEST_PLATE, B.chest], [BELLY_PLATE, torso]]) {
+    const m = new THREE.Mesh(geo, BRONZE);
+    m.position.set(c.x, 0, cz);
+    m.scale.set(rx, 1, rz);
+    add(m, bone);
+  }
+  for (const s of ['L', 'R']) {
+    const arm = at(B[`upperArm${s}`]);
+    const out = Math.sign(arm.x - c.x);
+    const p = new THREE.Mesh(PAULDRON, BRONZE);
+    p.position.set(arm.x + out * 0.07, arm.y + 0.02, arm.z);
+    p.scale.set(1, 0.8, 1.15);
+    p.rotation.z = -out * 0.5; // dome tipped out over the shoulder
+    add(p, B[`upperArm${s}`]);
+  }
+  // pteruges: leather strips hanging from the cuirass over the hips
+  if (hips) {
+    for (let k = 0; k < 12; k++) {
+      const a = (k / 12) * Math.PI * 2;
+      const s = new THREE.Mesh(STRAP, LEATHER);
+      s.position.set(c.x + Math.sin(a) * rx * 1.0, 0.92, cz + Math.cos(a) * rz * 1.05);
+      s.rotation.y = a;
+      add(s, hips);
+    }
+  }
+  return parts;
+}
+
 const CLIPS = { idle: 'Idle', walk: 'Walk', run: 'Run', sit: 'Idle_Neutral', drawBow: 'Idle_Neutral', swing: 'Sword_Slash' };
 const X = new THREE.Vector3(1, 0, 0);
 const Y = new THREE.Vector3(0, 1, 0);
@@ -124,6 +180,14 @@ export function buildRiggedPlayer(gender, look, tpl, { bow, sword, poses }) {
   B.wristR.add(sword);
   sword.position.set(0, 0.08, 0.02);
   sword.rotation.set(0, 0, -Math.PI / 2); // blade out past the thumb (wrist -X)
+
+  const armor = buildArmor(model, B, gender);
+  let armored = false;
+  function setArmor(on) {
+    if (on === armored) return;
+    armored = on;
+    for (const p of armor) p.visible = on;
+  }
 
   const mixer = new THREE.AnimationMixer(model);
   const actions = {};
@@ -206,7 +270,7 @@ export function buildRiggedPlayer(gender, look, tpl, { bow, sword, poses }) {
     overrides();
   }
 
-  root.userData = { gender, setPose, update, getPose: () => pose, head: B.head, hair, rigged: true };
+  root.userData = { gender, setPose, setArmor, update, getPose: () => pose, head: B.head, hair, rigged: true };
   setPose('idle');
   update(0);
   return root;
