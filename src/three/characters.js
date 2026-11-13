@@ -129,8 +129,9 @@ function buildArmor(model, B, gender) {
   return parts;
 }
 
-const CLIPS = { idle: 'Idle', walk: 'Walk', run: 'Run', sit: 'Idle_Neutral', drawBow: 'Idle_Neutral', swing: 'Sword_Slash' };
+const CLIPS = { idle: 'Idle', walk: 'Walk', run: 'Run', sit: 'Idle_Neutral', ride: 'Idle_Neutral', drawBow: 'Idle_Neutral', swing: 'Sword_Slash' };
 const X = new THREE.Vector3(1, 0, 0);
+const Z = new THREE.Vector3(0, 0, 1);
 const SIT_DROP = 0.42;
 
 /**
@@ -238,9 +239,21 @@ export function buildRiggedPlayer(gender, look, tpl, { bow, sword, poses }) {
 
   function overrides() {
     model.position.y = pose === 'sit' ? -SIT_DROP : 0;
-    if (pose !== 'sit' && pose !== 'drawBow') return;
+    if (pose !== 'sit' && pose !== 'drawBow' && pose !== 'ride') return;
     root.updateMatrixWorld(true);
-    if (pose === 'sit') {
+    if (pose === 'ride') {
+      // astride: thighs forward and spread round the barrel, shins hanging back along the flanks,
+      // leaning in with both hands down on the mane
+      turn(B.chest, X, 0.42);
+      for (const [s, out] of [['L', 1], ['R', -1]]) {
+        turn(B[`upperLeg${s}`], X, -1.05);
+        turn(B[`upperLeg${s}`], Z, out * 0.62);
+        turn(B[`lowerLeg${s}`], X, 1.35);
+        turn(B[`upperArm${s}`], X, -1.0);
+        turn(B[`upperArm${s}`], Z, out * 0.12);
+        turn(B[`lowerArm${s}`], X, -0.7);
+      }
+    } else if (pose === 'sit') {
       for (const s of ['L', 'R']) {
         turn(B[`upperLeg${s}`], X, -1.5);
         turn(B[`lowerLeg${s}`], X, 1.5);
@@ -265,6 +278,10 @@ export function buildRiggedPlayer(gender, look, tpl, { bow, sword, poses }) {
   root.userData = { gender, setPose, setArmor, setAim: archer.setAim, update, getPose: () => pose, head: B.head, hair, rigged: true };
   setPose('idle');
   update(0);
+  // height of the hip joint above the feet, so a rider can be set down onto a saddle point
+  root.updateMatrixWorld(true);
+  const hips = model.getObjectByName('Hips');
+  root.userData.hipHeight = hips ? root.worldToLocal(hips.getWorldPosition(new THREE.Vector3())).y : 0.95;
   return root;
 }
 

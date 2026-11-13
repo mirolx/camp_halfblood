@@ -54,6 +54,7 @@ export function createDirector(stage, { godId, gender, startAt = 0, audio = null
 
   const pegasi = createPegasi(scene, ctx, { count: 4 });
   ctx.pegasus = pegasi.list[0];
+  for (const p of pegasi.list) if (p.userData.rider) world.addFill(p.userData.rider);
 
   const cameras = createCameras(stage.renderer, ctx);
   if (audio) {
