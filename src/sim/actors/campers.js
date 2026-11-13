@@ -75,6 +75,19 @@ export function createCrowd(scene, ctx, { count = 40, seed = 11 } = {}) {
     return slots.get(m) ?? 0;
   }
 
+  // archers in index order (the player first), so each takes the next free lane/slot
+  let ranks = null;
+  let ranksFor = -1;
+  function archerRank(m) {
+    if (ranksFor !== members.length) {
+      ranks = new Map();
+      const order = members.filter((x) => x.role === 'archer').sort((a, b) => b.isPlayer - a.isPlayer || a.index - b.index);
+      order.forEach((x, n) => ranks.set(x, n));
+      ranksFor = members.length;
+    }
+    return ranks.get(m) ?? 0;
+  }
+
   // Arena: one fighter per training dummy (an odd one out takes a dummy's far side), everyone
   // else paired off into duels on open sand between the dummies.
   const DUEL_SPOTS = [[-3.5, -1], [3.5, 1.5], [0, -8.5], [0, 8.5], [-9, -10.5], [9, 10.5], [-13.5, 0.5], [13.5, -0.5], [9, -10.5], [-9, 10.5]];
@@ -164,12 +177,15 @@ export function createCrowd(scene, ctx, { count = 40, seed = 11 } = {}) {
       case 'training': {
         if (m.role === 'archer') {
           const targets = ctx.archeryTargets;
-          const lane = i % targets.length;
+          // spots go by order among the archers (not the crowd index, which would leave lanes
+          // empty and stack two archers on one spot)
+          const k = archerRank(m);
+          const lane = k % targets.length;
           const tgt = targets[lane];
           // stand on the shooting line, 22m in front of the target
           const mid = targets.reduce((a, v) => a.add(v), new THREE.Vector3()).multiplyScalar(1 / targets.length);
           const dir = tmp.copy(anchors.archery).sub(mid).setY(0).normalize();
-          const slot = Math.floor(i / targets.length) % 3;
+          const slot = Math.floor(k / targets.length) % 3;
           const along = new THREE.Vector3(-dir.z, 0, dir.x).multiplyScalar((slot - 1) * 1.1);
           const pos = tgt.clone().addScaledVector(dir, 22 + slot * 0.4).add(along);
           return { pos: onGround(pos), pose: 'drawBow', face: tgt };
