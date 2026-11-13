@@ -18,6 +18,11 @@ export const CABIN_MODELS = {
   dionysus: { file: 'dionysus_cabin.glb', root: 'DIONYSUS_CABIN' },
 };
 
+// Camp buildings other than cabins, same pipeline. Keys are what buildWorld's `models` carries.
+export const FACILITY_MODELS = {
+  bigHouse: { file: 'big_house.glb', root: 'BIG_HOUSE' },
+};
+
 /**
  * Pull the cabin root out of a loaded GLB scene and make it game-ready:
  * drop lights, hide placeholder flames (real fire is added at fireSpots), enable shadows.
@@ -64,7 +69,7 @@ export async function loadCabinModels() {
   const loader = new GLTFLoader();
   const out = {};
   await Promise.all(
-    Object.entries(CABIN_MODELS).map(async ([id, { file, root }]) => {
+    Object.entries({ ...CABIN_MODELS, ...FACILITY_MODELS }).map(async ([id, { file, root }]) => {
       try {
         const gltf = await loader.loadAsync(BASE + file);
         out[id] = prepareCabinModel(gltf.scene, root);

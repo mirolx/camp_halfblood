@@ -15,7 +15,7 @@ export function buildWorld(scene, renderer, { interiorFor = 'hermes', models = {
   const lake = createLake(scene);
   createForest(scene, terrain.heightAt);
   const cabins = layoutCabins(scene, terrain.heightAt, { interiorFor, models });
-  const facilities = createFacilities(scene, terrain.heightAt);
+  const facilities = createFacilities(scene, terrain.heightAt, { models });
 
   // Blender cabins: reflections for gold/bronze, and real fire in the braziers
   const pmrem = new THREE.PMREMGenerator(renderer);
@@ -23,8 +23,9 @@ export function buildWorld(scene, renderer, { interiorFor = 'hermes', models = {
   pmrem.dispose();
   const metals = []; // every model material with its daytime reflection strength
   const fires = [];
-  for (const cabin of cabins.values()) {
-    const model = cabin.getObjectByName(`model-${cabin.userData.id}`);
+  const modelled = [...cabins.values()].map((c) => c.getObjectByName(`model-${c.userData.id}`));
+  if (models.bigHouse) modelled.push(facilities.bigHouse);
+  for (const model of modelled) {
     if (!model) continue;
     applyEnvironment(model, env);
     model.traverse((o) => {

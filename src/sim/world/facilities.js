@@ -264,11 +264,13 @@ function strawberries() {
   return g;
 }
 
-export function createFacilities(scene, heightAt) {
+export function createFacilities(scene, heightAt, { models = {} } = {}) {
   const L = LAYOUT;
   const at = (p, y = 0) => new THREE.Vector3(p.x, heightAt(p.x, p.z) + y, p.z);
 
-  const bh = place(bigHouse(), L.bigHouse, heightAt, faceCenter(L.bigHouse.x, L.bigHouse.z));
+  // the Blender Big House (front toward +Z, like the procedural one) when it loaded
+  const bh = place(models.bigHouse ? models.bigHouse.clone(true) : bigHouse(), L.bigHouse, heightAt, faceCenter(L.bigHouse.x, L.bigHouse.z));
+  bh.name = 'big-house';
   const pav = pavilion();
   place(pav.group, L.pavilion, heightAt);
   const ar = place(arena(), L.arena, heightAt);
@@ -310,5 +312,6 @@ export function createFacilities(scene, heightAt) {
     brazierFire: pav.fire,
     campfire: amph.fire,
     gate,
+    bigHouse: bh,
   };
 }

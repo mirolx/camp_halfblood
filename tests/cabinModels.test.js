@@ -155,3 +155,24 @@ describe('cabin model registry', () => {
     }
   });
 });
+
+describe('Big House model', () => {
+  test('is registered as a facility model with its Blender root', async () => {
+    const { FACILITY_MODELS } = await import('../src/sim/world/models.js');
+    expect(FACILITY_MODELS.bigHouse).toEqual({ file: 'big_house.glb', root: 'BIG_HOUSE' });
+  });
+
+  test('facilities place a copy of the loaded model, or fall back to the procedural house', async () => {
+    const THREE = await import('three');
+    const { createFacilities } = await import('../src/sim/world/facilities.js');
+    const model = new THREE.Group();
+    model.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshStandardMaterial()), { name: 'BODY_walls' }));
+    const flat = () => 0;
+    const withModel = createFacilities(new THREE.Scene(), flat, { models: { bigHouse: model } });
+    expect(withModel.bigHouse.getObjectByName('BODY_walls')).toBeTruthy();
+    expect(withModel.bigHouse).not.toBe(model); // a fresh copy per world, so rebuilding the sim keeps the original
+    const plain = createFacilities(new THREE.Scene(), flat);
+    expect(plain.bigHouse.getObjectByName('BODY_walls')).toBeFalsy();
+    expect(plain.bigHouse.children.length).toBeGreaterThan(0);
+  });
+});
