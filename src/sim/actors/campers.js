@@ -56,7 +56,7 @@ export function createCrowd(scene, ctx, { count = 40, seed = 11 } = {}) {
   }
 
   const tableOf = (m) => CABIN_IDS.indexOf(m.cabinId) % ctx.pavilionTables.length;
-  // the player sits first at their table, then campers in index order: 6 seats a side
+  // the player sits first at their table, then campers in index order: 5 seats a side
   let slots = null;
   let slotsFor = -1;
   function seatSlot(m) {
@@ -156,18 +156,21 @@ export function createCrowd(scene, ctx, { count = 40, seed = 11 } = {}) {
         const tables = ctx.pavilionTables;
         const table = tables[tableOf(m)];
         table.updateMatrixWorld(true);
-        // seats are handed out per table so nobody sits on someone else's lap
+        // seats are handed out per table so nobody sits on someone else's lap. Table frame: benches
+        // along x at z=+-0.95 (top 0.49), solid end boards from x=+-1.44 out, so five seats a side
+        // stay within +-1.2. A seated camper's hip is 0.42 above their root.
         const k = seatSlot(m);
-        const seat = (Math.floor(k / 2) % 6) - 2.5;
+        const seatX = ((Math.floor(k / 2) % 5) - 2) * 0.6;
         const sideZ = k % 2 ? 0.95 : -0.95;
-        const seatPos = new THREE.Vector3(seat * 0.6, -0.15, sideZ).applyMatrix4(table.matrixWorld);
+        const seatPos = new THREE.Vector3(seatX, 0.49 - 0.42, sideZ).applyMatrix4(table.matrixWorld);
+        const across = new THREE.Vector3(seatX, 0.49 - 0.42, 0).applyMatrix4(table.matrixWorld);
         // offering window: each camper visits the brazier once in the first half
         const start = m.offerSlot * 0.4;
         if (progress > start && progress < start + 0.07) {
           const a = m.offerSlot * Math.PI * 2;
           return { pos: ringPoint(anchors.brazier, 1.6, a, 0.6), pose: 'idle', face: anchors.brazier, offering: true };
         }
-        return { pos: seatPos, pose: 'sit', face: table.getWorldPosition(new THREE.Vector3()), seated: true };
+        return { pos: seatPos, pose: 'sit', face: across, seated: true };
       }
       case 'campfire':
       default: {

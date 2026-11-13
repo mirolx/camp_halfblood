@@ -71,6 +71,30 @@ describe('crowd', () => {
     expect(visits).toBeGreaterThan(0);
   });
 
+  test('dinner seats sit on the benches, clear of the table ends, facing straight across', () => {
+    const c = ctx();
+    const crowd = createCrowd(c.scene, c, { count: 36 });
+    crowd.addMember(new THREE.Group(), { cabinId: 'apollo', role: 'archer', isPlayer: true, index: 0 });
+    for (const m of crowd.members) {
+      const t = crowd.targetFor(m, 'dinner', 0.9);
+      const table = c.pavilionTables.find((tb) => {
+        const inv = tb.matrixWorld.clone().invert();
+        const l = t.pos.clone().applyMatrix4(inv);
+        return Math.abs(l.z) < 1.2 && Math.abs(l.x) < 2;
+      });
+      expect(table, m.name).toBeTruthy();
+      const inv = table.matrixWorld.clone().invert();
+      const seat = t.pos.clone().applyMatrix4(inv);
+      const face = t.face.clone().applyMatrix4(inv);
+      // end boards are solid from x=1.44 out; a seated body is ~0.4m wide
+      expect(Math.abs(seat.x), m.name).toBeLessThan(1.25);
+      expect(Math.abs(Math.abs(seat.z) - 0.95), m.name).toBeLessThan(0.05);
+      // bench top is 0.49 above the table base and the seated hip sits 0.42 above the root
+      expect(seat.y, m.name).toBeCloseTo(0.07, 1);
+      expect(Math.abs(face.x - seat.x), `${m.name} faces the table square-on`).toBeLessThan(0.01);
+    }
+  });
+
   test('pegasus watchers stand outside the stables and out of the lake', () => {
     const c = ctx();
     const crowd = createCrowd(c.scene, c, { count: 36 });

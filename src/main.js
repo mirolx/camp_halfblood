@@ -16,6 +16,13 @@ const stage = createStage(document.getElementById('stage'));
 const app = createApp(document.getElementById('app'));
 const params = new URLSearchParams(location.search);
 const debugT = Number(params.get('t') ?? 0);
+// ?screen=…&t=… jumps into that screen once; replays and later visits start from the beginning
+const debugStart = { claiming: params.get('screen') === 'claiming' ? debugT : 0, sim: params.get('screen') === 'sim' ? debugT : 0 };
+function takeDebugStart(screen) {
+  const t = debugStart[screen];
+  debugStart[screen] = 0;
+  return t;
+}
 
 // Audio starts on the first user gesture (browser autoplay policy). Missing files are skipped.
 const audio = createAudio();
@@ -35,7 +42,7 @@ app.register('claiming', (el, go, state) =>
       gender: state.gender,
       onContinue: () => { audio.playMusic(null); go('sim'); },
       onSymbolRise: () => audio.playMusic('claiming', { fade: 1 }),
-      startAt: params.get('screen') === 'claiming' ? debugT : 0,
+      startAt: takeDebugStart('claiming'),
     });
     return () => c?.destroy?.();
   }),
@@ -71,7 +78,7 @@ function runSim(el, go, state) {
   const director = createDirector(stage, {
     godId: state.godId,
     gender: state.gender,
-    startAt: params.get('screen') === 'sim' ? debugT : 0,
+    startAt: takeDebugStart('sim'),
     audio,
     models: cabinModels ?? {},
   });
