@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { LAYOUT } from '../world/layout.js';
 import { heightAt } from '../world/terrain.js';
 
@@ -43,7 +44,96 @@ function wing(side) {
   return pivot;
 }
 
-export function buildPegasus() {
+// Rigged horse from Quaternius' Ultimate Animated Animals (Horse_White, CC0, quaternius.com),
+// scaled from ~4.8m to the old figure's size; the feather wings above ride on its back.
+const HORSE_FILE = 'pegasus_horse.glb';
+const HORSE_SCALE = 0.55;
+const HORSE_COLORS = { Main: '#f3f0ea', Main_Light: '#dcd6cc', Hair: '#e8e2d6' };
+let horse = null; // { scene, animations } once loaded
+
+export function registerPegasusModel(gltf) {
+  horse = gltf ? { scene: gltf.scene, animations: gltf.animations } : null;
+}
+
+/** Load the horse model; on failure the primitive pegasus is used. */
+export async function loadPegasusModel() {
+  const { GLTFLoader } = await import('three/examples/jsm/loaders/GLTFLoader.js');
+  try {
+    registerPegasusModel(await new GLTFLoader().loadAsync(`${import.meta.env?.BASE_URL ?? '/'}assets/models/${HORSE_FILE}`));
+  } catch (err) {
+    console.info(`[pegasus] using primitive pegasus (${err.message})`);
+  }
+}
+
+const horseMats = new Map();
+function horseMat(base) {
+  const color = HORSE_COLORS[base.name];
+  if (!color) return base;
+  if (!horseMats.has(base.uuid)) {
+    const m = base.clone();
+    m.color.set(color);
+    horseMats.set(base.uuid, m);
+  }
+  return horseMats.get(base.uuid);
+}
+
+// grazing horses don't all do the same thing
+const GROUND_CLIPS = ['Idle', 'Eating', 'Idle_Headlow', 'Idle_2'];
+
+function buildRiggedPegasus(index) {
+  const g = new THREE.Group();
+  g.name = 'pegasus';
+  const model = cloneSkinned(horse.scene);
+  model.scale.setScalar(HORSE_SCALE);
+  model.traverse((o) => {
+    if (!o.isMesh) return;
+    o.castShadow = true;
+    o.material = horseMat(o.material);
+  });
+  g.add(model);
+
+  const wL = wing(-1);
+  const wR = wing(1);
+  for (const w of [wL, wR]) {
+    w.scale.setScalar(1.5);
+    g.add(w);
+  }
+  const withers = model.getObjectByName('Torso2');
+  const back = new THREE.Vector3();
+
+  const mixer = new THREE.AnimationMixer(model);
+  const clip = (n) => horse.animations.find((a) => a.name === n);
+  const ground = mixer.clipAction(clip(GROUND_CLIPS[index % GROUND_CLIPS.length]) ?? clip('Idle'));
+  const air = mixer.clipAction(clip('Gallop'));
+  air.timeScale = 0.55; // a slow stride reads as running on air, not panic
+  ground.time = index * 0.9;
+  ground.play();
+  let flying = false;
+
+  function setFlying(f) {
+    if (f === flying) return;
+    flying = f;
+    const [from, to] = f ? [ground, air] : [air, ground];
+    to.reset().fadeIn(0.6).play();
+    from.fadeOut(0.6);
+  }
+
+  function update(dt) {
+    mixer.update(dt);
+    // keep the wings on the withers as the back rises and falls
+    g.updateMatrixWorld(true);
+    withers.getWorldPosition(back);
+    g.worldToLocal(back);
+    for (const w of [wL, wR]) w.position.set(0, back.y + 0.12, back.z + 0.25);
+  }
+
+  g.userData = { wings: [wL, wR], legs: [], tail: null, rigged: true, setFlying, update };
+  update(0);
+  return g;
+}
+
+export function buildPegasus(index = 0) {
+  if (horse) return buildRiggedPegasus(index);
   const g = new THREE.Group();
   g.name = 'pegasus';
   const body = capsule(0.42, 1.3, COAT);
@@ -98,6 +188,26 @@ export function buildPegasus() {
   return g;
 }
 
+/**
+ * Spread and flapping in flight; on the ground swept back along the back with a slight droop,
+ * so the long feathers lie over the flanks instead of hanging into the grass.
+ * wings[0] reaches toward -X, wings[1] toward +X.
+ */
+export function poseWings(wings, flying, time, i = 0) {
+  if (flying) {
+    const flap = Math.sin(time * 4.5 + i) * 0.7;
+    wings[0].rotation.set(0, 0, 0.25 + flap, 'XYZ');
+    wings[1].rotation.set(0, 0, -0.25 - flap, 'XYZ');
+    for (const w of wings) w.scale.setScalar(1.5);
+  } else {
+    // roll the fan upright against the flank, droop a little, then sweep back toward the tail
+    const breathe = Math.sin(time * 0.8 + i) * 0.03;
+    wings[0].rotation.set(-1.0, -1.45, 0.12 + breathe, 'YZX');
+    wings[1].rotation.set(-1.0, 1.45, -0.12 - breathe, 'YZX');
+    for (const w of wings) w.scale.setScalar(0.95);
+  }
+}
+
 /** Deterministic flight path over the lake for pegasus i at time t (seconds). */
 export function flightPosition(i, t, out = new THREE.Vector3()) {
   const { x, z, rx, rz } = LAYOUT.lake;
@@ -115,7 +225,7 @@ export function createPegasi(scene, ctx, { count = 4 } = {}) {
   const list = [];
   const paddock = ctx.anchors.stables;
   for (let i = 0; i < count; i++) {
-    const p = buildPegasus();
+    const p = buildPegasus(i);
     p.position.set(paddock.x - 8 + i * 4, paddock.y, paddock.z + 18);
     p.rotation.y = i * 0.9;
     scene.add(p);
@@ -129,7 +239,8 @@ export function createPegasi(scene, ctx, { count = 4 } = {}) {
     time += dt;
     const flying = sceneId === 'pegasus';
     list.forEach((p, i) => {
-      const { wings, legs, tail } = p.userData;
+      const { wings, legs, tail, rigged } = p.userData;
+      if (rigged) p.userData.setFlying(flying);
       if (flying) {
         // ease from the paddock into the flight path during the first 8% of the scene
         flightPosition(i, time, next);
@@ -140,22 +251,24 @@ export function createPegasi(scene, ctx, { count = 4 } = {}) {
         const dir = next.clone().sub(prev);
         p.rotation.y = Math.atan2(dir.x, dir.z);
         p.rotation.z = -Math.sin(time * 0.3 + i) * 0.25;
-        const flap = Math.sin(time * 4.5 + i) * 0.7;
-        wings[0].rotation.z = 0.25 + flap;
-        wings[1].rotation.z = -0.25 - flap;
-        for (const [j, l] of legs.entries()) l.rotation.x = j < 2 ? 0.9 : -0.6;
-        tail.rotation.x = -1.0;
+        poseWings(wings, true, time, i);
+        if (!rigged) {
+          for (const [j, l] of legs.entries()) l.rotation.x = j < 2 ? 0.9 : -0.6;
+          tail.rotation.x = -1.0;
+        }
       } else {
         const hx = paddock.x - 8 + i * 4 + Math.sin(time * 0.05 + i) * 3;
         const hz = paddock.z + 18 + Math.cos(time * 0.04 + i) * 2;
         p.position.set(hx, ctx.heightAt(hx, hz), hz);
         p.rotation.z = 0;
         p.rotation.y += dt * 0.02;
-        wings[0].rotation.z = 1.25 + Math.sin(time * 0.8 + i) * 0.04; // folded along the body
-        wings[1].rotation.z = -1.25 - Math.sin(time * 0.8 + i) * 0.04;
-        for (const l of legs) l.rotation.x = 0;
-        tail.rotation.x = -0.5 + Math.sin(time * 1.3 + i) * 0.1;
+        poseWings(wings, false, time, i);
+        if (!rigged) {
+          for (const l of legs) l.rotation.x = 0;
+          tail.rotation.x = -0.5 + Math.sin(time * 1.3 + i) * 0.1;
+        }
       }
+      if (rigged) p.userData.update(dt);
     });
   }
 

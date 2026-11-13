@@ -10,6 +10,7 @@ import { createAudio } from './audio/engine.js';
 import { SOUNDS } from './audio/manifest.js';
 import { loadCabinModels } from './sim/world/models.js';
 import { loadCharacterModels } from './three/characters.js';
+import { loadPegasusModel } from './sim/actors/pegasus.js';
 
 const stage = createStage(document.getElementById('stage'));
 const app = createApp(document.getElementById('app'));
@@ -40,11 +41,12 @@ app.register('claiming', (el, go, state) =>
   }),
 );
 
-// Blender cabins and rigged campers load in the background while the player takes the test.
+// Blender cabins, rigged campers and the pegasus horse load in the background while the player takes the test.
 let cabinModels = null;
 const modelsReady = Promise.all([
   loadCabinModels().then((m) => (cabinModels = m)),
   loadCharacterModels(),
+  loadPegasusModel(),
 ]);
 let modelsLoaded = false;
 modelsReady.then(() => { modelsLoaded = true; });
