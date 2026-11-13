@@ -80,15 +80,18 @@ export function createDirector(stage, { godId, gender, startAt = 0, audio = null
 
   const off = stage.onFrame((dt) => {
     clock.tick(dt);
+    // paused freezes the world (campers, arrows, pegasi, water, ambience); the camera keeps
+    // the real dt so you can still drag to look around a frozen frame
+    const simDt = clock.isPaused() ? 0 : dt;
     const t = clock.elapsed();
     const s = clock.scene();
     const p = sceneProgress(t);
     const tod = timeOfDayAt(t);
 
-    crowd.update(dt, s.id, p);
-    pegasi.update(dt, s.id, p);
+    crowd.update(simDt, s.id, p);
+    pegasi.update(simDt, s.id, p);
     cameras.update(dt, s.id, p);
-    const sky = world.update(dt, tod, cameras.focus());
+    const sky = world.update(simDt, tod, cameras.focus());
 
     // the front door swings open just before we walk out (and stays open for the day)
     if (homeDoor) homeDoor.rotation.y = 1.7 * (s.id === 'dawn' ? THREE.MathUtils.smoothstep(p, 0.4, 0.47) : 1);
@@ -119,7 +122,7 @@ export function createDirector(stage, { godId, gender, startAt = 0, audio = null
     stage.bloom.strength = 0.04 + night * 0.4;
     stage.bloom.threshold = 0.85;
 
-    audio?.update({ sceneId: s.id, progress: p, dt, camera: cameras.camera });
+    audio?.update({ sceneId: s.id, progress: p, dt: simDt, camera: cameras.camera });
   });
 
   return {
