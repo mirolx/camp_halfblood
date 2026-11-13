@@ -48,6 +48,7 @@ export function createDirector(stage, { godId, gender, startAt = 0, audio = null
     if (p < 0.62) return { pos: new THREE.Vector3(1.8, 0, 11 / 2 + 7.5).applyMatrix4(cab.matrixWorld), pose: 'idle', face: ctx.anchors.green };
     return null;
   };
+  for (const m of crowd.members) world.addFill(m.mesh);
   ctx.player = player;
   ctx.playerLookUp = () => (me.state?.lookUp ? 0.5 : 0);
 

@@ -45,6 +45,23 @@ export function buildWorld(scene, renderer, { interiorFor = 'hermes', models = {
   let t = 0;
   return {
     heightAt: terrain.heightAt,
+    /**
+     * Soft all-round fill for characters. With only the sun and a dim hemisphere light, their
+     * camera-facing side is usually in shade (the scripted shots often look into the sun) and
+     * renders near-black. The same studio map as the cabins lifts that side and fades out at night.
+     */
+    addFill(root, strength = 0.9) {
+      root.traverse((o) => {
+        if (!o.isMesh) return;
+        for (const m of Array.isArray(o.material) ? o.material : [o.material]) {
+          if (!m?.isMeshStandardMaterial || metals.some((e) => e.m === m)) continue;
+          m.envMap = env;
+          m.envMapIntensity = strength;
+          m.needsUpdate = true;
+          metals.push({ m, base: strength });
+        }
+      });
+    },
     sky,
     lake,
     cabins,
