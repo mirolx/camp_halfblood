@@ -21,6 +21,7 @@ export const CABIN_MODELS = {
 // Camp buildings other than cabins, same pipeline. Keys are what buildWorld's `models` carries.
 export const FACILITY_MODELS = {
   bigHouse: { file: 'big_house.glb', root: 'BIG_HOUSE' },
+  stables: { file: 'stables.glb', root: 'STABLES' },
 };
 
 /**

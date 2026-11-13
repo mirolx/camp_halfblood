@@ -162,6 +162,21 @@ describe('Big House model', () => {
     expect(FACILITY_MODELS.bigHouse).toEqual({ file: 'big_house.glb', root: 'BIG_HOUSE' });
   });
 
+  test('stables are registered as a facility model with their Blender root', async () => {
+    const { FACILITY_MODELS } = await import('../src/sim/world/models.js');
+    expect(FACILITY_MODELS.stables).toEqual({ file: 'stables.glb', root: 'STABLES' });
+  });
+
+  test('facilities place a copy of the loaded stables model', async () => {
+    const THREE = await import('three');
+    const { createFacilities } = await import('../src/sim/world/facilities.js');
+    const model = new THREE.Group();
+    model.add(Object.assign(new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshStandardMaterial()), { name: 'PADDOCK_fence' }));
+    const f = createFacilities(new THREE.Scene(), () => 0, { models: { stables: model } });
+    expect(f.stables.getObjectByName('PADDOCK_fence')).toBeTruthy();
+    expect(f.stables).not.toBe(model);
+  });
+
   test('facilities place a copy of the loaded model, or fall back to the procedural house', async () => {
     const THREE = await import('three');
     const { createFacilities } = await import('../src/sim/world/facilities.js');

@@ -276,7 +276,9 @@ export function createFacilities(scene, heightAt, { models = {} } = {}) {
   const ar = place(arena(), L.arena, heightAt);
   const arch = archery();
   place(arch.group, L.archery, heightAt, faceCenter(L.archery.x, L.archery.z));
-  const st = place(stables(), L.stables, heightAt, faceCenter(L.stables.x, L.stables.z));
+  // the Blender barn and paddock (paddock toward +Z, where the pegasi graze) when it loaded
+  const st = place(models.stables ? models.stables.clone(true) : stables(), L.stables, heightAt, faceCenter(L.stables.x, L.stables.z));
+  st.name = 'stables';
   const amph = amphitheater();
   place(amph.group, L.amphitheater, heightAt, faceCenter(L.amphitheater.x, L.amphitheater.z));
   const pine = place(thaliaPine(heightAt), L.thaliaPine, heightAt);
@@ -313,5 +315,6 @@ export function createFacilities(scene, heightAt, { models = {} } = {}) {
     campfire: amph.fire,
     gate,
     bigHouse: bh,
+    stables: st,
   };
 }
