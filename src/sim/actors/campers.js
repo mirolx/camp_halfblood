@@ -233,6 +233,32 @@ export function createCrowd(scene, ctx, { count = 40, seed = 11 } = {}) {
     }
   }
 
+  // Nobody wades: a step that lands in the lake is pushed back out to the shore and slid along
+  // it toward the target, so a walk that would cross the water goes round it instead.
+  const SHORE = 1.06; // inLake() value of the walkable rim (spots by the dock are all > 1.1)
+  const shoreDir = new THREE.Vector3();
+  function keepAshore(p, target, step) {
+    const v = inLake(p.x, p.z);
+    if (v >= SHORE) return;
+    const L = LAYOUT.lake;
+    const k = Math.sqrt(SHORE / Math.max(v, 1e-4));
+    p.x = L.x + (p.x - L.x) * k;
+    p.z = L.z + (p.z - L.z) * k;
+    shoreDir.set(-(p.z - L.z), 0, p.x - L.x).normalize();
+    if (shoreDir.x * (target.x - p.x) + shoreDir.z * (target.z - p.z) < 0) shoreDir.negate();
+    p.addScaledVector(shoreDir, step);
+  }
+
+  // a point near `pos` that isn't in the lake, for walking in from off-camera
+  function dryNear(pos, a, r) {
+    for (let k = 0; k < 12; k++, a += Math.PI / 6) {
+      const x = pos.x + Math.cos(a) * r;
+      const z = pos.z + Math.sin(a) * r;
+      if (inLake(x, z) >= SHORE) return [x, z];
+    }
+    return [pos.x, pos.z];
+  }
+
   let currentScene = null;
 
   /** On scene change, members far from their new target start nearby (just off-camera) and walk in. */
@@ -244,7 +270,8 @@ export function createCrowd(scene, ctx, { count = 40, seed = 11 } = {}) {
       if (d > 30 || !m.placed) {
         const a = m.jitter.x * 6.28;
         const r = m.placed ? 10 + Math.abs(m.jitter.y) * 10 : 0;
-        m.mesh.position.set(t.pos.x + Math.cos(a) * r, 0, t.pos.z + Math.sin(a) * r);
+        const [x, z] = r ? dryNear(t.pos, a, r) : [t.pos.x, t.pos.z];
+        m.mesh.position.set(x, 0, z);
         m.mesh.position.y = ctx.heightAt(m.mesh.position.x, m.mesh.position.z);
         m.placed = true;
       }
@@ -263,6 +290,7 @@ export function createCrowd(scene, ctx, { count = 40, seed = 11 } = {}) {
         const speed = dist > 12 ? JOG : WALK;
         tmp.normalize().multiplyScalar(Math.min(speed * dt, dist));
         p.add(tmp);
+        keepAshore(p, t.pos, tmp.length());
         p.y = THREE.MathUtils.lerp(p.y, ctx.heightAt(p.x, p.z) + (dist < 1.5 ? t.pos.y - ctx.heightAt(t.pos.x, t.pos.z) : 0), 0.3);
         m.mesh.rotation.y = Math.atan2(tmp.x, tmp.z);
         m.mesh.userData.setPose('walk');
