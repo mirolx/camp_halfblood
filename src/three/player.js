@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { buildRiggedPlayer, characterTemplate } from './characters.js';
 
 // Stylized demigod figure (~1.7m) in an orange camp shirt.
 // Built from simple primitives so dozens can share materials cheaply.
@@ -23,11 +24,55 @@ function capsule(radius, length, material, name) {
   return m;
 }
 
+// Bow drawn in its own space: limbs up/down, belly toward +Z, string at z=0.19, grip at z=0.5.
+function makeBow() {
+  const bow = new THREE.Group();
+  bow.name = 'bow';
+  const arc = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.018, 5, 18, Math.PI * 0.75), mat('#5a3b22', { roughness: 0.6 }));
+  arc.rotation.set(0, Math.PI / 2, Math.PI * 0.625);
+  const string = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.92, 4), mat('#e8e2d0'));
+  string.position.z = 0.19;
+  bow.add(arc, string);
+  bow.traverse((o) => { o.castShadow = o.isMesh; });
+  bow.visible = false;
+  return bow;
+}
+
+// Bronze sword, blade along -Y from the grip.
+function makeSword() {
+  const sword = new THREE.Group();
+  sword.name = 'sword';
+  const blade = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.75, 0.015), mat('#c99a4a', { roughness: 0.3 }));
+  blade.position.y = -0.45;
+  const guard = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.03, 0.04), mat('#6a4a2a'));
+  sword.add(blade, guard);
+  sword.traverse((o) => { o.castShadow = o.isMesh; });
+  sword.visible = false;
+  return sword;
+}
+
 /**
+ * A camper. Uses the rigged Quaternius model when one is loaded (see characters.js),
+ * otherwise the primitive block figure below. Both expose the same userData API.
  * @param {'male'|'female'} gender
  * @param {{shirt?:string, pants?:string, skin?:string, hair?:string, seed?:number}} [look]
  */
 export function createPlayer(gender, look = {}) {
+  const seed = look.seed ?? 0;
+  const tpl = characterTemplate(gender, Math.floor(seed / 2)); // crowd alternates gender, so halve the seed
+  if (tpl) {
+    const skin = new THREE.Color(look.skin ?? SKIN_TONES[seed % SKIN_TONES.length]);
+    const darker = '#' + skin.clone().multiplyScalar(0.8).getHexString();
+    return buildRiggedPlayer(gender, {
+      ...look,
+      skinFor: (name) => (name === 'Skin_Darker' ? darker : '#' + skin.getHexString()),
+      hair: look.hair ?? HAIR_COLORS[(seed * 3 + 1) % HAIR_COLORS.length],
+    }, tpl, { bow: makeBow(), sword: makeSword(), poses: POSES });
+  }
+  return createBlockPlayer(gender, look);
+}
+
+function createBlockPlayer(gender, look = {}) {
   const seed = look.seed ?? 0;
   const skin = mat(look.skin ?? SKIN_TONES[seed % SKIN_TONES.length]);
   const hairMat = mat(look.hair ?? HAIR_COLORS[(seed * 3 + 1) % HAIR_COLORS.length], { roughness: 0.6 });
@@ -121,24 +166,13 @@ export function createPlayer(gender, look = {}) {
   head.add(hair);
 
   // props: bow in the left hand, bronze sword in the right
-  const bow = new THREE.Group();
-  const bowArc = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.018, 5, 18, Math.PI * 0.75), mat('#5a3b22', { roughness: 0.6 }));
-  bowArc.rotation.set(0, Math.PI / 2, Math.PI * 0.625);
-  const bowString = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.92, 4), mat('#e8e2d0'));
-  bowString.position.z = -0.19;
-  bow.add(bowArc, bowString);
+  const bow = makeBow();
   bow.position.set(0, -0.58, 0.05);
   bow.rotation.x = Math.PI / 2;
-  bow.visible = false;
   arms[0].add(bow);
-  const sword = new THREE.Group();
-  const blade = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.75, 0.015), mat('#c99a4a', { roughness: 0.3 }));
-  blade.position.y = -0.45;
-  const guard = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.03, 0.04), mat('#6a4a2a'));
-  sword.add(blade, guard);
+  const sword = makeSword();
   sword.position.set(0, -0.6, 0.02);
   sword.rotation.x = Math.PI;
-  sword.visible = false;
   arms[1].add(sword);
 
   let pose = 'idle';

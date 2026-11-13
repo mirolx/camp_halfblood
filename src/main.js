@@ -9,6 +9,7 @@ import { sceneAt } from './sim/timeline.js';
 import { createAudio } from './audio/engine.js';
 import { SOUNDS } from './audio/manifest.js';
 import { loadCabinModels } from './sim/world/models.js';
+import { loadCharacterModels } from './three/characters.js';
 
 const stage = createStage(document.getElementById('stage'));
 const app = createApp(document.getElementById('app'));
@@ -27,18 +28,42 @@ app.onScreen(async (name) => {
 });
 
 app.register('claiming', (el, go, state) =>
-  runClaiming(stage, el, {
-    godId: state.godId,
-    gender: state.gender,
-    onContinue: () => { audio.playMusic(null); go('sim'); },
-    onSymbolRise: () => audio.playMusic('claiming', { fade: 1 }),
-    startAt: params.get('screen') === 'claiming' ? debugT : 0,
+  whenModelsReady(el, () => {
+    const c = runClaiming(stage, el, {
+      godId: state.godId,
+      gender: state.gender,
+      onContinue: () => { audio.playMusic(null); go('sim'); },
+      onSymbolRise: () => audio.playMusic('claiming', { fade: 1 }),
+      startAt: params.get('screen') === 'claiming' ? debugT : 0,
+    });
+    return () => c?.destroy?.();
   }),
 );
 
-// Blender cabin models load in the background while the player takes the test.
+// Blender cabins and rigged campers load in the background while the player takes the test.
 let cabinModels = null;
-const modelsReady = loadCabinModels().then((m) => (cabinModels = m));
+const modelsReady = Promise.all([
+  loadCabinModels().then((m) => (cabinModels = m)),
+  loadCharacterModels(),
+]);
+let modelsLoaded = false;
+modelsReady.then(() => { modelsLoaded = true; });
+
+/** Run a screen once models are in; until then show a quiet placeholder (e.g. ?screen=sim deep links). */
+function whenModelsReady(el, run) {
+  if (modelsLoaded) return { destroy: run() };
+  let cancelled = false;
+  let stop = null;
+  const wait = document.createElement('p');
+  wait.className = 'screen loading';
+  wait.textContent = '…';
+  el.appendChild(wait);
+  modelsReady.then(() => {
+    wait.remove();
+    if (!cancelled) stop = run();
+  });
+  return { destroy: () => { cancelled = true; wait.remove(); stop?.(); } };
+}
 
 function runSim(el, go, state) {
   const director = createDirector(stage, {
@@ -69,22 +94,7 @@ function runSim(el, go, state) {
   };
 }
 
-app.register('sim', (el, go, state) => {
-  if (cabinModels) return { destroy: runSim(el, go, state) };
-  // models still loading (e.g. jumping straight in with ?screen=sim): wait briefly
-  let cancelled = false;
-  let stop = null;
-  const wait = document.createElement('p');
-  wait.className = 'screen loading';
-  wait.textContent = '…';
-  el.appendChild(wait);
-  modelsReady.then(() => {
-    wait.remove();
-    if (!cancelled) stop = runSim(el, go, state);
-  });
-  return { destroy: () => { cancelled = true; wait.remove(); stop?.(); } };
-});
-
+app.register('sim', (el, go, state) => whenModelsReady(el, () => runSim(el, go, state)));
 
 if (params.get('screen') === 'debug') {
   app.register('debug', () => runDebugView(stage, { tod: Number(params.get('tod') ?? 0.3), interiorFor: params.get('god') ?? 'hermes', models: cabinModels ?? {} }));
