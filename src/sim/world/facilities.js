@@ -164,14 +164,30 @@ function stables() {
   return g;
 }
 
+/**
+ * A flat ring segment (inner..outer radius, angles as CylinderGeometry's theta: x = r sin, z = r cos),
+ * standing on y = 0 and `height` tall, with closed ends.
+ */
+function ringSector(inner, outer, height, thetaStart, thetaLength, segments = 32) {
+  const shape = new THREE.Shape();
+  const pt = (r, t) => [r * Math.sin(t), -r * Math.cos(t)]; // shape y = -z, see rotateX below
+  shape.moveTo(...pt(outer, thetaStart));
+  for (let i = 1; i <= segments; i++) shape.lineTo(...pt(outer, thetaStart + (thetaLength * i) / segments));
+  for (let i = segments; i >= 0; i--) shape.lineTo(...pt(inner, thetaStart + (thetaLength * i) / segments));
+  const geo = new THREE.ExtrudeGeometry(shape, { depth: height, bevelEnabled: false, curveSegments: 1 });
+  geo.rotateX(-Math.PI / 2); // extrusion depth becomes +y, shape y becomes -z
+  return geo;
+}
+
 function amphitheater() {
   const g = new THREE.Group();
   const stone = std('#8d8578', { rough: 0.95 });
+  // tier r is a ring from the previous tier's edge out to 6 + 1.3r, 0.45 higher than the one inside
+  // it, so the seats really step down toward the fire (campers.js seats people on these tops)
   for (let r = 0; r < 5; r++) {
     const radius = 6 + r * 1.3;
     const height = 0.45 * (r + 1);
-    const step = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, height, 48, 1, false, Math.PI * 0.6, Math.PI * 0.8), stone);
-    step.position.y = height / 2;
+    const step = new THREE.Mesh(ringSector(radius - 1.3, radius, height, Math.PI * 0.6, Math.PI * 0.8), stone);
     step.receiveShadow = true;
     step.castShadow = true;
     g.add(step);
