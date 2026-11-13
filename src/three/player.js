@@ -30,10 +30,21 @@ function makeBow() {
   bow.name = 'bow';
   const arc = new THREE.Mesh(new THREE.TorusGeometry(0.5, 0.018, 5, 18, Math.PI * 0.75), mat('#5a3b22', { roughness: 0.6 }));
   arc.rotation.set(0, Math.PI / 2, Math.PI * 0.625);
-  const string = new THREE.Mesh(new THREE.CylinderGeometry(0.004, 0.004, 0.92, 4), mat('#e8e2d0'));
-  string.position.z = 0.19;
+  // string: tip -> nock -> tip, so the middle can be pulled back by the drawing hand
+  const pts = new Float32Array([0, 0.46, 0.19, 0, 0, 0.19, 0, -0.46, 0.19]);
+  const sg = new THREE.BufferGeometry();
+  sg.setAttribute('position', new THREE.BufferAttribute(pts, 3));
+  const string = new THREE.Line(sg, new THREE.LineBasicMaterial({ color: '#efe9d8' }));
+  string.frustumCulled = false;
   bow.add(arc, string);
   bow.traverse((o) => { o.castShadow = o.isMesh; });
+  /** Pull the string's middle to `p` (bow space), or let it rest with null. */
+  bow.userData.setNock = (p) => {
+    pts[3] = 0;
+    pts[4] = p ? THREE.MathUtils.clamp(p.y, -0.1, 0.1) : 0;
+    pts[5] = p ? Math.min(p.z, 0.19) : 0.19;
+    sg.attributes.position.needsUpdate = true;
+  };
   bow.visible = false;
   return bow;
 }

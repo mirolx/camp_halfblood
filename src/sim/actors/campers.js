@@ -254,6 +254,7 @@ export function createCrowd(scene, ctx, { count = 40, seed = 11 } = {}) {
       } else {
         p.y = THREE.MathUtils.lerp(p.y, t.pos.y, 0.3);
         if (t.face) m.mesh.rotation.y = Math.atan2(t.face.x - p.x, t.face.z - p.z);
+        m.mesh.userData.setAim?.(t.pose === 'drawBow' ? t.face : null);
         m.mesh.userData.setPose(t.pose);
         m.mesh.userData.update(dt);
         if (t.lookUp) m.mesh.userData.head.rotation.x = -0.45;

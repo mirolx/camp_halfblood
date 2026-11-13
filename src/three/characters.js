@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
+import { createArcher } from './archery.js';
 
 // Rigged campers from Quaternius' Ultimate Modular Men / Women packs (CC0, quaternius.com).
 // All five share one 62-bone skeleton and the same 24 clips; they face +Z and stand ~1.8m tall.
@@ -130,7 +131,6 @@ function buildArmor(model, B, gender) {
 
 const CLIPS = { idle: 'Idle', walk: 'Walk', run: 'Run', sit: 'Idle_Neutral', drawBow: 'Idle_Neutral', swing: 'Sword_Slash' };
 const X = new THREE.Vector3(1, 0, 0);
-const Y = new THREE.Vector3(0, 1, 0);
 const SIT_DROP = 0.42;
 
 /**
@@ -182,6 +182,7 @@ export function buildRiggedPlayer(gender, look, tpl, { bow, sword, poses }) {
   sword.rotation.set(0, 0, -Math.PI / 2); // blade out past the thumb (wrist -X)
 
   const armor = buildArmor(model, B, gender);
+  const archer = createArcher({ model, root, B, bow, rand: mulberry(seed * 13 + 5) });
   let armored = false;
   function setArmor(on) {
     if (on === armored) return;
@@ -202,7 +203,6 @@ export function buildRiggedPlayer(gender, look, tpl, { bow, sword, poses }) {
 
   let pose = 'idle';
   let current = null;
-  let phase = rand() * Math.PI * 2;
 
   function play(key, fade = 0.25) {
     const next = actions[key] ?? actions.idle;
@@ -215,6 +215,8 @@ export function buildRiggedPlayer(gender, look, tpl, { bow, sword, poses }) {
 
   function setPose(p) {
     if (!poses.includes(p)) throw new Error(`Unknown pose: ${p}`);
+    if (p === 'drawBow' && pose !== 'drawBow') archer.enter();
+    if (p !== 'drawBow' && pose === 'drawBow') archer.leave();
     pose = p;
     bow.visible = p === 'drawBow';
     sword.visible = p === 'swing';
@@ -234,7 +236,6 @@ export function buildRiggedPlayer(gender, look, tpl, { bow, sword, poses }) {
     b.updateMatrixWorld(true);
   }
 
-  const wrist = new THREE.Vector3();
   function overrides() {
     model.position.y = pose === 'sit' ? -SIT_DROP : 0;
     if (pose !== 'sit' && pose !== 'drawBow') return;
@@ -247,30 +248,21 @@ export function buildRiggedPlayer(gender, look, tpl, { bow, sword, poses }) {
         turn(B[`lowerArm${s}`], X, -0.35);
       }
     } else {
-      const pull = Math.sin(phase) * 0.5 + 0.5;
-      turn(B.chest, Y, 0.35);
-      turn(B.upperArmL, X, -1.65);
-      turn(B.upperArmL, Y, 0.2);
-      turn(B.upperArmR, X, -1.7);
-      turn(B.upperArmR, Y, -0.35);
-      turn(B.lowerArmR, Y, 2.3 + pull * 0.4);
-      B.wristL.getWorldPosition(wrist);
-      bow.position.copy(model.worldToLocal(wrist));
-      bow.position.z -= 0.5; // grip sits in the hand, string toward the archer
+      archer.apply();
     }
   }
 
   function update(dt, speed = 1) {
-    phase += dt * 1.6;
     const key = pose === 'walk' && speed > 1.3 ? 'run' : pose;
     play(key);
     if (current) current.timeScale = key === 'walk' || key === 'run' ? speed / (key === 'run' ? 1.6 : 1) : 1;
     for (const [b, q] of rest) b.quaternion.copy(q);
     mixer.update(dt);
+    archer.update(dt);
     overrides();
   }
 
-  root.userData = { gender, setPose, setArmor, update, getPose: () => pose, head: B.head, hair, rigged: true };
+  root.userData = { gender, setPose, setArmor, setAim: archer.setAim, update, getPose: () => pose, head: B.head, hair, rigged: true };
   setPose('idle');
   update(0);
   return root;
