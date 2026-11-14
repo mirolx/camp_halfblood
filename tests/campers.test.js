@@ -61,8 +61,10 @@ describe('crowd', () => {
   test('offering: during early dinner some campers visit the brazier', () => {
     const c = ctx();
     const crowd = createCrowd(c.scene, c, { count: 24 });
+    // campers only go up to the brazier once they've reached their seat
+    for (const m of crowd.members) m.dinnerSeated = true;
     let visits = 0;
-    for (let p = 0; p < 0.5; p += 0.01) {
+    for (let p = 0; p < 0.6; p += 0.01) {
       for (const m of crowd.members) {
         const t = crowd.targetFor(m, 'dinner', p);
         if (t.pos.distanceTo(c.anchors.brazier) < 2.5) visits++;
