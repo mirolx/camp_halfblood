@@ -129,9 +129,10 @@ function buildArmor(model, B, gender) {
   return parts;
 }
 
-const CLIPS = { idle: 'Idle', walk: 'Walk', run: 'Run', sit: 'Idle_Neutral', ride: 'Idle_Neutral', drawBow: 'Idle_Neutral', swing: 'Sword_Slash' };
+const CLIPS = { idle: 'Idle', walk: 'Walk', run: 'Run', sit: 'Idle_Neutral', ride: 'Idle_Neutral', talk: 'Idle', drawBow: 'Idle_Neutral', swing: 'Sword_Slash' };
 const X = new THREE.Vector3(1, 0, 0);
 const Z = new THREE.Vector3(0, 0, 1);
+const Y_AXIS = new THREE.Vector3(0, 1, 0);
 const SIT_DROP = 0.42;
 
 /**
@@ -204,6 +205,7 @@ export function buildRiggedPlayer(gender, look, tpl, { bow, sword, poses }) {
 
   let pose = 'idle';
   let current = null;
+  let talkT = rand() * 20; // own rhythm, so in a group one gestures while the others listen
 
   function play(key, fade = 0.25) {
     const next = actions[key] ?? actions.idle;
@@ -239,9 +241,19 @@ export function buildRiggedPlayer(gender, look, tpl, { bow, sword, poses }) {
 
   function overrides() {
     model.position.y = pose === 'sit' ? -SIT_DROP : 0;
-    if (pose !== 'sit' && pose !== 'drawBow' && pose !== 'ride') return;
+    if (pose !== 'sit' && pose !== 'drawBow' && pose !== 'ride' && pose !== 'talk') return;
     root.updateMatrixWorld(true);
-    if (pose === 'ride') {
+    if (pose === 'talk') {
+      // chatting: small nods, and every few seconds a hand comes up to make a point
+      turn(B.head, X, Math.sin(talkT * 2.6) * 0.07 + 0.04);
+      const beat = talkT % 4.5;
+      const g = beat < 1.6 ? Math.sin((beat / 1.6) * Math.PI) : 0;
+      if (g > 0) {
+        turn(B.upperArmR, X, -0.55 * g);
+        turn(B.lowerArmR, X, -0.95 * g);
+        turn(B.lowerArmR, Y_AXIS, 0.4 * g * Math.sin(talkT * 5));
+      }
+    } else if (pose === 'ride') {
       // astride: thighs forward and spread round the barrel, shins hanging back along the flanks,
       // leaning in with both hands down on the mane
       turn(B.chest, X, 0.42);
@@ -272,6 +284,7 @@ export function buildRiggedPlayer(gender, look, tpl, { bow, sword, poses }) {
     for (const [b, q] of rest) b.quaternion.copy(q);
     mixer.update(dt);
     archer.update(dt);
+    if (pose === 'talk') talkT += dt;
     overrides();
   }
 

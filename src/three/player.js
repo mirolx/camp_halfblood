@@ -4,7 +4,7 @@ import { buildRiggedPlayer, characterTemplate } from './characters.js';
 // Stylized demigod figure (~1.7m) in an orange camp shirt.
 // Built from simple primitives so dozens can share materials cheaply.
 
-const POSES = ['idle', 'walk', 'sit', 'ride', 'drawBow', 'swing'];
+const POSES = ['idle', 'walk', 'sit', 'ride', 'talk', 'drawBow', 'swing'];
 const SKIN_TONES = ['#f1c9a5', '#e0ac85', '#c68863', '#9a6646', '#6e4630'];
 const HAIR_COLORS = ['#2a1d14', '#4a3020', '#7a4f2a', '#c49a5a', '#1a1a1a'];
 

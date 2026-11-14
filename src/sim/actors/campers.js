@@ -11,6 +11,9 @@ function hash(a, b) {
 }
 
 const WALK = 1.5; // m/s
+// overview scene beats: wander until GATHER, chat in groups until SCATTER, then head off
+const GATHER = 0.3;
+const SCATTER = 0.75;
 const JOG = 3.2;
 
 /**
@@ -185,6 +188,48 @@ export function createCrowd(scene, ctx, { count = 40, seed = 11 } = {}) {
     return wander.get(m);
   }
 
+  // Chat groups: members in player-first order, chunked into threes and twos (never a lone one),
+  // each group round its own spot on the green at least 3.2m from the others.
+  let chats = null;
+  let chatsFor = -1;
+  function chatSpot(m) {
+    if (chatsFor !== members.length) {
+      chats = new Map();
+      chatsFor = members.length;
+      const order = [...members].sort((a, b) => b.isPlayer - a.isPlayer || a.index - b.index);
+      const centers = [];
+      for (let n = 0, g = 0; n < order.length; g++) {
+        const left = order.length - n;
+        const size = left === 3 ? 3 : left === 4 || left === 2 ? 2 : g % 2 ? 2 : 3;
+        let center = null;
+        for (let k = 0; k < 12; k++) {
+          const a = hash(g + 500, k) * Math.PI * 2;
+          const r = 4 + Math.sqrt(hash(g + 700, k)) * 9;
+          center = ringPoint(anchors.green, r, a);
+          if (centers.every((c) => c.distanceTo(center) > 3.2)) break;
+        }
+        centers.push(center);
+        const spin = hash(g + 900, 0) * Math.PI * 2;
+        const rad = size === 3 ? 0.75 : 0.6;
+        order.slice(n, n + size).forEach((x, s) => {
+          chats.set(x, { pos: ringPoint(center, rad, spin + (s / size) * Math.PI * 2), center });
+        });
+        n += size;
+      }
+    }
+    return chats.get(m);
+  }
+
+  // Scatter: archers and fighters head for the spots they'll train at, everyone else splits
+  // between the stables and the lake shore by the dock.
+  function scatterSpot(m) {
+    if (m.role === 'archer' || m.role === 'fighter') {
+      const t = targetFor(m, 'training', 0);
+      return { pos: t.pos, pose: 'idle', face: t.face };
+    }
+    return { pos: m.index % 2 ? dockSpot(m.index) : stablesSpot(m.index), pose: 'idle', face: anchors.lake };
+  }
+
   /** Where member m wants to be (and doing what) at a given scene/progress. */
   function targetFor(m, sceneId, progress) {
     if (m.override) {
@@ -208,7 +253,14 @@ export function createCrowd(scene, ctx, { count = 40, seed = 11 } = {}) {
         return { pos: ringPoint(anchors.green, 6 + (i % 5) * 1.8, a), pose: 'idle', face: anchors.green };
       }
       case 'overview': {
-        return { pos: wanderSpot(m, progress), pose: 'idle' };
+        // wander, then drift into little groups of two or three to chat, then scatter to the
+        // stables, the lake, the archery range and the arena ahead of the training scene
+        if (progress < GATHER) return { pos: wanderSpot(m, progress), pose: 'idle' };
+        if (progress < SCATTER) {
+          const g = chatSpot(m);
+          return { pos: g.pos, pose: 'talk', face: g.center };
+        }
+        return scatterSpot(m);
       }
       case 'training': {
         if (m.role === 'archer') {
