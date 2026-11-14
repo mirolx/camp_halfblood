@@ -144,17 +144,64 @@ export function createCrowd(scene, ctx, { count = 40, seed = 11 } = {}) {
     const r = 11.5 + row * 2.2;
     return onGround(new THREE.Vector3(S.x + Math.cos(a) * r, 0, S.z + Math.sin(a) * r));
   }
-  // On the shore side of the dock, never out in the water.
+  // On the shore side of the dock, never out in the water, and never up in the dining pavilion
+  // (it stands 23m from the dock): a ray that runs into it swings round to the next angle.
   const D = LAYOUT.dock;
   const L = LAYOUT.lake;
   const shoreward = Math.atan2(D.z - L.z, D.x - L.x);
   function dockSpot(i) {
     const k = Math.floor(i / 2);
-    const a = shoreward + ((k * 7) % 11 / 10 - 0.5) * 2.2;
-    for (let r = 5 + (k % 3) * 2; ; r += 1.5) {
-      const p = new THREE.Vector3(D.x + Math.cos(a) * r, 0, D.z + Math.sin(a) * r);
-      if (inLake(p.x, p.z) > 1.1 || r > 30) return onGround(p);
+    let fallback = null;
+    for (let turn = 0; turn < 8; turn++) {
+      const a = shoreward + ((k * 7 + turn * 3) % 11 / 10 - 0.5) * 2.2;
+      for (let r = 5 + (k % 3) * 2; r <= 30; r += 1.5) {
+        const p = new THREE.Vector3(D.x + Math.cos(a) * r, 0, D.z + Math.sin(a) * r);
+        if (inLake(p.x, p.z) <= 1.1) continue;
+        if (pavR(p) < PAV_KEEP + 0.5) break;
+        return onGround(p);
+      }
+      fallback ??= new THREE.Vector3(D.x + Math.cos(shoreward) * 12, 0, D.z + Math.sin(shoreward) * 12);
     }
+    return onGround(fallback);
+  }
+
+  // Dining pavilion (unrotated, floor top at anchors.pavilion.y): a 13m marble platform with a step
+  // to 13.9m, 18 columns at r 12.4 every 20°, and 12 radial tables at r 7.8 (6 to 9.6), angle
+  // 0.13 + k·30°, their benches 0.73 to 1.18 either side. Walking in a straight line crossed all of
+  // that, so campers follow its aisles: through a gap in the colonnade, round the free ring between
+  // the tables and the columns, then down the aisle between two tables to the bench.
+  const P = anchors.pavilion;
+  const PAV_R = 13;
+  const PAV_KEEP = PAV_R + 1.3; // walkers from outside keep out of this circle unless it's their goal
+  const COL_STEP = Math.PI / 9;
+  const pavR = (v) => Math.hypot(v.x - P.x, v.z - P.z);
+  const pavA = (v) => Math.atan2(v.z - P.z, v.x - P.x);
+  function groundAt(x, z) {
+    const r = Math.hypot(x - P.x, z - P.z);
+    if (r < PAV_R) return P.y;
+    if (r < PAV_R + 0.9) return P.y - 0.2;
+    return ctx.heightAt(x, z);
+  }
+  function pavPoint(r, a) {
+    return new THREE.Vector3(P.x + Math.cos(a) * r, P.y, P.z + Math.sin(a) * r);
+  }
+  // waypoints from outside the colonnade to just behind a bench seat (tableLocal: seat in table frame)
+  function pavilionRoutes(table, seatX, side, offerSlot) {
+    const behind = new THREE.Vector3(seatX, 0, side * 1.5).applyMatrix4(table.matrixWorld).setY(P.y);
+    const aisleA = pavA(table.getWorldPosition(tmp)) + side * (Math.PI / 12);
+    const besideSeat = pavPoint(7.8 + seatX, aisleA);
+    const outerAisle = pavPoint(10.8, aisleA);
+    const innerAisle = pavPoint(4.6, aisleA);
+    const gapA = COL_STEP / 2 + Math.round((aisleA - COL_STEP / 2) / COL_STEP) * COL_STEP;
+    const gapIn = pavPoint(10.8, gapA);
+    const gapOut = onGround(new THREE.Vector3(P.x + Math.cos(gapA) * 15.5, 0, P.z + Math.sin(gapA) * 15.5));
+    const offer = pavPoint(1.6, aisleA + (offerSlot - 0.5) * 0.5);
+    return {
+      in: [gapOut, gapIn, outerAisle, besideSeat, behind],
+      offer: [behind, besideSeat, innerAisle],
+      back: [innerAisle, besideSeat, behind],
+      offerSpot: offer,
+    };
   }
 
   // Free time on the green: everyone wanders, walking to a spot, lingering, then picking another.
@@ -302,13 +349,15 @@ export function createCrowd(scene, ctx, { count = 40, seed = 11 } = {}) {
         const sideZ = k % 2 ? 0.95 : -0.95;
         const seatPos = new THREE.Vector3(seatX, 0.49 - 0.42, sideZ).applyMatrix4(table.matrixWorld);
         const across = new THREE.Vector3(seatX, 0.49 - 0.42, 0).applyMatrix4(table.matrixWorld);
-        // offering window: each camper visits the brazier once in the first half
-        const start = m.offerSlot * 0.4;
-        if (progress > start && progress < start + 0.07) {
-          const a = m.offerSlot * Math.PI * 2;
-          return { pos: ringPoint(anchors.brazier, 1.6, a, 0.6), pose: 'idle', face: anchors.brazier, offering: true };
+        const routes = pavilionRoutes(table, seatX, Math.sign(sideZ), m.offerSlot);
+        // offering window: each camper visits the brazier once in the first half, once they've sat
+        // down (someone still walking in when their window comes skips it)
+        const start = 0.12 + m.offerSlot * 0.35;
+        if (m.dinnerSeated && progress > start && progress < start + 0.07) {
+          return { pos: routes.offerSpot, route: routes.offer, routeKey: 'offer', pose: 'idle', face: anchors.brazier, offering: true };
         }
-        return { pos: seatPos, pose: 'sit', face: across, seated: true };
+        const back = m.routeKey === 'offer' || m.routeKey === 'back';
+        return { pos: seatPos, route: back ? routes.back : routes.in, routeKey: back ? 'back' : 'in', pose: 'sit', face: across, seated: true };
       }
       case 'campfire':
       default: {
@@ -342,6 +391,19 @@ export function createCrowd(scene, ctx, { count = 40, seed = 11 } = {}) {
     p.addScaledVector(shoreDir, step);
   }
 
+  // Same for the pavilion: a walker passing by is held on a circle round it and slides along that
+  // toward its goal, instead of cutting across the platform, the tables and the colonnade.
+  function keepOffPavilion(p, goal, step) {
+    const r = pavR(p);
+    if (r >= PAV_KEEP) return;
+    const k = PAV_KEEP / Math.max(r, 1e-4);
+    p.x = P.x + (p.x - P.x) * k;
+    p.z = P.z + (p.z - P.z) * k;
+    shoreDir.set(-(p.z - P.z), 0, p.x - P.x).normalize();
+    if (shoreDir.x * (goal.x - p.x) + shoreDir.z * (goal.z - p.z) < 0) shoreDir.negate();
+    p.addScaledVector(shoreDir, step);
+  }
+
   // a point near `pos` that isn't in the lake, for walking in from off-camera
   function dryNear(pos, a, r) {
     for (let k = 0; k < 12; k++, a += Math.PI / 6) {
@@ -358,9 +420,24 @@ export function createCrowd(scene, ctx, { count = 40, seed = 11 } = {}) {
   function enterScene(sceneId, progress = 0) {
     currentScene = sceneId;
     for (const m of members) {
+      m.routeKey = null;
+      m.dinnerSeated = false;
       const t = targetFor(m, sceneId, progress);
       const d = m.mesh.position.distanceTo(t.pos);
-      if (t.indoors && (d > 30 || !m.placed)) {
+      if (t.route && !m.placed) {
+        // dropped straight into the scene: already there, nothing left to walk
+        m.mesh.position.copy(t.pos);
+        m.routeKey = t.routeKey;
+        m.routeIdx = t.route.length;
+        m.dinnerSeated = !!t.seated;
+        m.placed = true;
+      } else if (t.route && d > 30) {
+        // walk in from just outside the first waypoint (never from inside the building)
+        const first = t.route[0];
+        const out = Math.atan2(first.z - P.z, first.x - P.x) + m.jitter.x * 0.6;
+        const [x, z] = dryNear(first, out, 4 + Math.abs(m.jitter.y) * 8);
+        m.mesh.position.set(x, ctx.heightAt(x, z), z);
+      } else if (t.indoors && (d > 30 || !m.placed)) {
         // already inside: no walk in from off-camera (it could cut through the cabin walls)
         m.mesh.position.copy(t.pos);
         m.placed = true;
@@ -381,17 +458,33 @@ export function createCrowd(scene, ctx, { count = 40, seed = 11 } = {}) {
       if (skipPlayer && m.isPlayer) continue;
       const t = targetFor(m, sceneId, progress);
       const p = m.mesh.position;
-      tmp.copy(t.pos).sub(p).setY(0);
+      // follow the target's waypoints in order, then the target itself
+      let goal = t.pos;
+      if (t.route) {
+        if (m.routeKey !== t.routeKey) {
+          m.routeKey = t.routeKey;
+          m.routeIdx = 0;
+        }
+        while (m.routeIdx < t.route.length && Math.hypot(t.route[m.routeIdx].x - p.x, t.route[m.routeIdx].z - p.z) < 0.35) m.routeIdx++;
+        if (m.routeIdx < t.route.length) goal = t.route[m.routeIdx];
+      } else {
+        m.routeKey = null;
+      }
+      const final = goal === t.pos;
+      tmp.copy(goal).sub(p).setY(0);
       const dist = tmp.length();
       // through the door and out of sight; anyone else (and everyone in other scenes) is shown.
       // The player's visibility belongs to the camera (hidden in first person).
       if (!m.isPlayer) m.mesh.visible = !(t.indoors && dist <= 0.25);
-      if (dist > 0.25) {
+      if (!final || dist > 0.25) {
         const speed = dist > 12 ? JOG : WALK;
         tmp.normalize().multiplyScalar(Math.min(speed * dt, dist));
+        const wasOut = pavR(p) >= PAV_KEEP;
         p.add(tmp);
-        keepAshore(p, t.pos, tmp.length());
-        p.y = THREE.MathUtils.lerp(p.y, ctx.heightAt(p.x, p.z) + (dist < 1.5 ? t.pos.y - ctx.heightAt(t.pos.x, t.pos.z) : 0), 0.3);
+        keepAshore(p, goal, tmp.length());
+        if (wasOut && pavR(goal) >= PAV_KEEP) keepOffPavilion(p, goal, tmp.length());
+        const lift = final && dist < 1.5 ? t.pos.y - groundAt(t.pos.x, t.pos.z) : 0;
+        p.y = THREE.MathUtils.lerp(p.y, groundAt(p.x, p.z) + lift, 0.3);
         m.mesh.rotation.y = Math.atan2(tmp.x, tmp.z);
         m.mesh.userData.setPose('walk');
         m.mesh.userData.update(dt, dist > 12 ? 1.6 : 1);
@@ -402,6 +495,7 @@ export function createCrowd(scene, ctx, { count = 40, seed = 11 } = {}) {
         m.mesh.userData.setPose(t.pose);
         m.mesh.userData.update(dt);
         if (t.lookUp) m.mesh.userData.head.rotation.x = -0.45;
+        if (t.seated && sceneId === 'dinner') m.dinnerSeated = true;
       }
       m.mesh.userData.setArmor?.(!!t.armor);
       m.state = t;
