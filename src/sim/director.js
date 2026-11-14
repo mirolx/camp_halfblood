@@ -72,7 +72,7 @@ export function createDirector(stage, { godId, gender, startAt = 0, audio = null
   cameras.snap(s0.id, sceneProgress(clock.elapsed()));
 
   const interior = cab.getObjectByName('interior');
-  const homeDoor = cab.getObjectByName('door');
+  const homeDoors = cab.userData.doors ?? [];
   const campfire = world.facilities.campfire;
   const brazier = world.facilities.brazierFire;
   const fireA = new THREE.Color();
@@ -94,7 +94,8 @@ export function createDirector(stage, { godId, gender, startAt = 0, audio = null
     const sky = world.update(simDt, tod, cameras.focus());
 
     // the front door swings open just before we walk out (and stays open for the day)
-    if (homeDoor) homeDoor.rotation.y = 1.7 * (s.id === 'dawn' ? THREE.MathUtils.smoothstep(p, 0.4, 0.47) : 1);
+    const doorOpen = 1.7 * (s.id === 'dawn' ? THREE.MathUtils.smoothstep(p, 0.4, 0.47) : 1);
+    for (const d of homeDoors) d.obj.rotation.y = d.sign * doorOpen;
 
     // cabin lamp only before the camp is fully awake
     if (interior) interior.children.find((c) => c.isPointLight).intensity = s.id === 'dawn' ? 8 : 0;

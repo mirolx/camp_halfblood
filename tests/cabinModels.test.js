@@ -64,6 +64,30 @@ describe('cabins with a Blender model', () => {
     expect(map.get('zeus').getObjectByName('interior')).toBeTruthy();
   });
 
+  test('a model with a fitted interior is used for the home cabin, with its anchors and doors', () => {
+    const scene = fakeGltfScene();
+    const ext = scene.getObjectByName('ZEUS_CABIN');
+    for (const nm of ['DOOR_pivot_L', 'DOOR_pivot_R']) ext.add(Object.assign(new THREE.Group(), { name: nm }));
+    const inner = new THREE.Group();
+    inner.name = 'ZEUS_INTERIOR';
+    const mk = (name, x, y, z) => Object.assign(new THREE.Group(), { name }).translateX(x).translateY(y).translateZ(z);
+    inner.add(mk('ANCHOR_window', 2.3, 2.3, -4.6), mk('ANCHOR_path_1', 1, 2.2, -2), mk('ANCHOR_path_0', 2.3, 2.3, -4.6), mk('ANCHOR_lamp', 0, 4.2, -1.6));
+    scene.add(inner);
+    const model = prepareCabinModel(scene, 'ZEUS_CABIN');
+    model.userData.interior = prepareCabinModel(scene, 'ZEUS_INTERIOR');
+
+    const map = layoutCabins(new THREE.Scene(), flat, { interiorFor: 'zeus', models: { zeus: model } });
+    const cab = map.get('zeus');
+    expect(cab.getObjectByName('model-zeus')).toBeTruthy();
+    expect(cab.getObjectByName('interior').getObjectByName('interior-model-zeus')).toBeTruthy();
+    expect(cab.getObjectByName('interior').children.some((c) => c.isPointLight)).toBe(true);
+    // anchors are converted from metres into the (scaled) cabin group
+    const k = 1.15;
+    expect(cab.userData.anchors.window.x).toBeCloseTo(2.3 / k, 5);
+    expect(cab.userData.dawnPath.map((v) => v.x)).toEqual([2.3 / k, 1 / k]);
+    expect(cab.userData.doors.map((d) => d.sign)).toEqual([1, -1]);
+  });
+
   test('model is placed at real-world size regardless of the cabin group scale', () => {
     const model = prepareCabinModel(fakeGltfScene(), 'ZEUS_CABIN');
     const map = layoutCabins(new THREE.Scene(), flat, { interiorFor: 'hermes', models: { zeus: model } });

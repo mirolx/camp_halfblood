@@ -56,13 +56,15 @@ export function createCameras(renderer, ctx) {
   function dawnPath(cab) {
     if (pathCache?.cab === cab) return pathCache.curve;
     const D = 11;
-    const pts = [
+    // a Blender cabin with a fitted interior carries its own route (window → room → door → porch)
+    const local = cab.userData.dawnPath ?? [
       new THREE.Vector3(0, 1.6, -D / 2 + 0.25 + 0.85),
       new THREE.Vector3(1.0, 1.6, -2.2),
       new THREE.Vector3(0.6, 1.6, 1.8),
       new THREE.Vector3(0, 1.7, D / 2 - 0.4),
       new THREE.Vector3(0, 1.8, D / 2 + 4),
-    ].map((v) => cabinPoint(v));
+    ];
+    const pts = local.map((v) => cabinPoint(v));
     pathCache = { cab, curve: new THREE.CatmullRomCurve3(pts) };
     return pathCache.curve;
   }
@@ -74,7 +76,7 @@ export function createCameras(renderer, ctx) {
         const D = 11;
         const cab = ctx.cabins.get(ctx.homeCabin);
         const inWindow = cabinPoint(cab.userData.anchors.window);
-        const outDoor = cabinPoint(new THREE.Vector3(0, 1.8, D / 2 + 4));
+        const outDoor = cabinPoint(cab.userData.dawnPath?.at(-1) ?? new THREE.Vector3(0, 1.8, D / 2 + 4));
         const greenHigh = W(anchors.green).add(new THREE.Vector3(26, 30, 42));
         const windowYaw = dawnWindowYaw(inWindow);
         if (p < 0.38) {

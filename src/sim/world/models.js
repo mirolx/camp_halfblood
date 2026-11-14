@@ -4,7 +4,8 @@ import * as THREE from 'three';
 // Each file holds a preview stage (ground, lights, cameras) plus one root node with the cabin.
 const BASE = `${import.meta.env?.BASE_URL ?? '/'}assets/models/`;
 export const CABIN_MODELS = {
-  zeus: { file: 'zeus_cabin.glb', root: 'ZEUS_CABIN' },
+  // `interior` is a second root in the same file, built to fit inside the cabin's walls.
+  zeus: { file: 'zeus_cabin.glb', root: 'ZEUS_CABIN', interior: 'ZEUS_INTERIOR' },
   hera: { file: 'hera_cabin.glb', root: 'HERA_CABIN' },
   poseidon: { file: 'poseidon_cabin.glb', root: 'POSEIDON_CABIN' },
   demeter: { file: 'demeter_cabin.glb', root: 'DEMETER_CABIN' },
@@ -51,7 +52,29 @@ export function prepareCabinModel(gltfScene, rootName) {
   });
   for (const l of lights) l.parent?.remove(l);
   model.userData.fireSpots = fireSpots;
+  model.userData.anchors = readAnchors(model);
   return model;
+}
+
+/**
+ * Empties named ANCHOR_<key> mark game spots inside a model (model-local, metres):
+ * ANCHOR_window → anchors.window, ANCHOR_path_0..n → anchors.path (in order).
+ */
+export function readAnchors(model) {
+  const anchors = {};
+  const path = [];
+  model.updateMatrixWorld(true);
+  const inv = model.matrixWorld.clone().invert();
+  model.traverse((o) => {
+    const m = /^ANCHOR_(.+)$/.exec(o.name);
+    if (!m) return;
+    const p = o.getWorldPosition(new THREE.Vector3()).applyMatrix4(inv);
+    const step = /^path_(\d+)$/.exec(m[1]);
+    if (step) path[Number(step[1])] = p;
+    else anchors[m[1]] = p;
+  });
+  if (path.length) anchors.path = path.filter(Boolean);
+  return anchors;
 }
 
 /** Give metals (gold, bronze) a reflection map so they read as metal, not paint. */
@@ -71,10 +94,11 @@ export async function loadCabinModels() {
   const loader = new GLTFLoader();
   const out = {};
   await Promise.all(
-    Object.entries({ ...CABIN_MODELS, ...FACILITY_MODELS }).map(async ([id, { file, root }]) => {
+    Object.entries({ ...CABIN_MODELS, ...FACILITY_MODELS }).map(async ([id, { file, root, interior }]) => {
       try {
         const gltf = await loader.loadAsync(BASE + file);
         out[id] = prepareCabinModel(gltf.scene, root);
+        if (interior) out[id].userData.interior = prepareCabinModel(gltf.scene, interior);
       } catch (err) {
         console.info(`[models] ${id}: using procedural cabin (${err.message})`);
       }

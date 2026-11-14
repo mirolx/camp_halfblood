@@ -23,7 +23,7 @@ export function buildWorld(scene, renderer, { interiorFor = 'hermes', models = {
   pmrem.dispose();
   const metals = []; // every model material with its daytime reflection strength
   const fires = [];
-  const modelled = [...cabins.values()].map((c) => c.getObjectByName(`model-${c.userData.id}`));
+  const modelled = [...cabins.values()].flatMap((c) => [c.getObjectByName(`model-${c.userData.id}`), c.getObjectByName(`interior-model-${c.userData.id}`)]);
   modelled.push(...facilities.modelled);
   for (const model of modelled) {
     if (!model) continue;
