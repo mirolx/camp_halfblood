@@ -90,7 +90,7 @@ export function gableRoof(width, depth, rise, mat, y, parent, overhang = 0.5) {
 }
 
 /** Text on a canvas texture plane (signs, cabin numbers). */
-export function textPlane(text, { w = 1, h = 0.4, color = '#2a2015', bg = '#e8dcc0', font = 'Cinzel, serif', px = 96 } = {}) {
+export function textPlane(text, { w = 1, h = 0.4, color = '#2a2015', bg = '#e8dcc0', font = '"ChosunGu", sans-serif', px = 96 } = {}) {
   const c = document.createElement('canvas');
   c.width = 512;
   c.height = Math.round((512 * h) / w);
@@ -100,7 +100,8 @@ export function textPlane(text, { w = 1, h = 0.4, color = '#2a2015', bg = '#e8dc
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, c.width, c.height);
   ctx.fillStyle = color;
-  ctx.font = `700 ${px}px ${font}`;
+  // the face has one weight; asking for 700 would smear it into a fake bold
+  ctx.font = `400 ${px}px ${font}`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(text, c.width / 2, c.height / 2 + 4);

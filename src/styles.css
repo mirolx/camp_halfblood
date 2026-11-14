@@ -1,3 +1,13 @@
+/* ChosunGu (조선굴림체), the one face used everywhere. It has a single weight, so the
+   browser is told not to fake a bold; headings stand out by size instead. */
+@font-face {
+  font-family: 'ChosunGu';
+  src: url('/assets/fonts/ChosunGu.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   --marble: #f3efe6;
   --marble-dim: #d9d2c3;
@@ -7,8 +17,8 @@
   --ink: #1d1b18;
   --night: #0d1424;
   --glass: rgba(16, 20, 30, 0.55);
-  --font-title: 'Cinzel', serif;
-  --font-body: 'Noto Sans KR', system-ui, sans-serif;
+  --font-title: 'ChosunGu', sans-serif;
+  --font-body: 'ChosunGu', sans-serif;
 }
 
 * { box-sizing: border-box; }
@@ -20,7 +30,11 @@ html, body {
   background: var(--night);
   color: var(--marble);
   font-family: var(--font-body);
+  font-synthesis: none;
 }
+
+/* form controls don't inherit the page font by default */
+button, input, select, textarea { font-family: inherit; }
 
 #stage {
   position: fixed;
