@@ -180,7 +180,7 @@ function stables() {
  * A flat ring segment (inner..outer radius, angles as CylinderGeometry's theta: x = r sin, z = r cos),
  * standing on y = 0 and `height` tall, with closed ends.
  */
-function ringSector(inner, outer, height, thetaStart, thetaLength, segments = 32) {
+export function ringSector(inner, outer, height, thetaStart, thetaLength, segments = 32) {
   const shape = new THREE.Shape();
   const pt = (r, t) => [r * Math.sin(t), -r * Math.cos(t)]; // shape y = -z, see rotateX below
   shape.moveTo(...pt(outer, thetaStart));

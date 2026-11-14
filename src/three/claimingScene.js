@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { createPlayer } from './player.js';
 import { createSymbol } from './symbols.js';
 import { createFire } from './fire.js';
+import { ringSector } from '../sim/world/facilities.js';
 import { getGod } from '../quiz/gods.js';
 import { h, bindI18n } from '../ui/dom.js';
 
@@ -61,16 +62,12 @@ export function runClaiming(stage, uiRoot, { godId, gender, onContinue, onSymbol
   ground.receiveShadow = true;
   scene.add(ground);
 
-  // amphitheater stone steps
+  // amphitheater stone steps: rings behind the front row of log benches (each was a solid pie
+  // slice from the fire outward, which buried the benches and the campers on them up to 1.2m)
   const stone = new THREE.MeshStandardMaterial({ color: '#5d574d', roughness: 0.95 });
   for (let r = 0; r < 3; r++) {
-    const radius = 5.3 + r * 1.1;
-    const height = 0.4 * (r + 1);
-    const step = new THREE.Mesh(
-      new THREE.CylinderGeometry(radius, radius, height, 48, 1, false, Math.PI * 0.55, Math.PI * 0.9),
-      stone,
-    );
-    step.position.y = height / 2;
+    const inner = 4.75 + r * 0.9;
+    const step = new THREE.Mesh(ringSector(inner, inner + 0.9, 0.4 * (r + 1), Math.PI * 0.55, Math.PI * 0.9, 48), stone);
     step.receiveShadow = true;
     scene.add(step);
   }
