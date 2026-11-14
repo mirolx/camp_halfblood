@@ -4,6 +4,12 @@ import { CABIN_IDS } from '../world/cabins.js';
 import { rng } from '../world/noise.js';
 import { LAYOUT, inLake } from '../world/layout.js';
 
+/** Repeatable pseudo-random number in [0, 1) for a pair of integers. */
+function hash(a, b) {
+  const s = Math.sin(a * 127.1 + b * 311.7) * 43758.5453;
+  return s - Math.floor(s);
+}
+
 const WALK = 1.5; // m/s
 const JOG = 3.2;
 
@@ -148,6 +154,37 @@ export function createCrowd(scene, ctx, { count = 40, seed = 11 } = {}) {
     }
   }
 
+  // Free time on the green: everyone wanders, walking to a spot, lingering, then picking another.
+  // A waypoint only changes every few seconds (a target that slid along under them every frame
+  // flipped campers between walking and standing each frame). Spots are seeded by index and leg
+  // number, so seeking or skipping lands on the same ones, and handed out player-first each frame:
+  // one that lands within 1.2m of an earlier spot takes its next candidate, so nobody ends up
+  // standing inside someone else.
+  let wander = null;
+  let wanderAt = null;
+  function wanderSpot(m, progress) {
+    if (wanderAt !== progress || wander?.size !== members.length) {
+      wander = new Map();
+      wanderAt = progress;
+      const taken = [];
+      const order = [...members].sort((a, b) => b.isPlayer - a.isPlayer || a.index - b.index);
+      for (const x of order) {
+        const j = x.index;
+        const leg = Math.floor((progress * 60 + x.offerSlot * 9) / (7 + (j % 4) * 1.5));
+        let spot = null;
+        for (let k = 0; k < 8; k++) {
+          const a = hash(j, leg * 8 + k) * Math.PI * 2;
+          const r = 4 + Math.sqrt(hash(j + 101, leg * 8 + k)) * 9; // inside the cabin ring
+          spot = ringPoint(anchors.green, r, a);
+          if (taken.every((t) => t.distanceTo(spot) > 1.2)) break;
+        }
+        taken.push(spot);
+        wander.set(x, spot);
+      }
+    }
+    return wander.get(m);
+  }
+
   /** Where member m wants to be (and doing what) at a given scene/progress. */
   function targetFor(m, sceneId, progress) {
     if (m.override) {
@@ -171,8 +208,7 @@ export function createCrowd(scene, ctx, { count = 40, seed = 11 } = {}) {
         return { pos: ringPoint(anchors.green, 6 + (i % 5) * 1.8, a), pose: 'idle', face: anchors.green };
       }
       case 'overview': {
-        const a = (i * 2.399) + progress * (i % 2 ? 1.2 : -1.2);
-        return { pos: ringPoint(anchors.green, 5 + (i % 6) * 1.6, a), pose: 'idle', face: anchors.green };
+        return { pos: wanderSpot(m, progress), pose: 'idle' };
       }
       case 'training': {
         if (m.role === 'archer') {
