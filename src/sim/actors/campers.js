@@ -180,7 +180,39 @@ export function createCrowd(scene, ctx, { count = 40, seed = 11 } = {}) {
     const r = Math.hypot(x - P.x, z - P.z);
     if (r < PAV_R) return P.y;
     if (r < PAV_R + 0.9) return P.y - 0.2;
+    const tier = amphTier(x, z);
+    if (tier >= 0) return F.y + 0.45 * (tier + 1);
     return ctx.heightAt(x, z);
+  }
+
+  // Campfire amphitheater: five solid stone tiers on the far side of the fire from the camp, each
+  // a ring from 4.7 + 1.3t to 6 + 1.3t at height 0.45(t + 1), spanning ±0.4π round that side.
+  // Campers come in from the open front, round the fire inside the first tier, then climb an aisle
+  // between two seats and step sideways onto theirs.
+  const F = anchors.campfire;
+  const AMPH_SPREAD = Math.PI * 0.4;
+  const fireToCenter = Math.atan2(anchors.green.z - F.z, anchors.green.x - F.x);
+  const amphBack = fireToCenter + Math.PI;
+  const wrapA = (a) => Math.atan2(Math.sin(a), Math.cos(a));
+  function amphTier(x, z) {
+    const r = Math.hypot(x - F.x, z - F.z);
+    if (r < 4.7 || r > 11.2) return -1;
+    if (Math.abs(wrapA(Math.atan2(z - F.z, x - F.x) - amphBack)) > AMPH_SPREAD) return -1;
+    return Math.min(4, Math.floor((r - 4.7) / 1.3));
+  }
+  const firePoint = (r, a) => new THREE.Vector3(F.x + Math.cos(a) * r, F.y, F.z + Math.sin(a) * r);
+  function amphRoute(seatA, seatR, aisleA) {
+    // enter on the seat's side of the fire, through the open front
+    const side = wrapA(seatA - amphBack) < 0 ? -1 : 1;
+    const entryA = fireToCenter - side * Math.PI * 0.35;
+    const route = [onGround(firePoint(13, entryA)), onGround(firePoint(3.4, entryA))];
+    // round the fire inside the lowest tier, never across it
+    const span = wrapA(aisleA - entryA);
+    const steps = Math.ceil(Math.abs(span) / 0.35);
+    for (let s = 1; s <= steps; s++) route.push(onGround(firePoint(3.4, entryA + (span * s) / steps)));
+    // up the aisle to the seat's tier, then along it
+    route.push(firePoint(seatR, aisleA));
+    return route;
   }
   function pavPoint(r, a) {
     return new THREE.Vector3(P.x + Math.cos(a) * r, P.y, P.z + Math.sin(a) * r);
@@ -364,13 +396,24 @@ export function createCrowd(scene, ctx, { count = 40, seed = 11 } = {}) {
         const row = i % 3;
         const n = Math.ceil(members.length / 3);
         const k = Math.floor(i / 3);
-        const fireToCenter = Math.atan2(anchors.green.z - anchors.campfire.z, anchors.green.x - anchors.campfire.x);
         // seats on the far side of the fire from the camp, on the stone tiers
-        const a = fireToCenter + Math.PI + ((k / Math.max(n - 1, 1)) - 0.5) * Math.PI * 0.72;
+        const rel = (k / Math.max(n - 1, 1)) - 0.5;
+        const a = amphBack + rel * Math.PI * 0.72;
         // sit on the stone tiers (tier k: radius 6 + 1.3k, top at 0.45(k+1))
         const tier = row + 1;
         const r = 6 + tier * 1.3 - 0.45;
-        return { pos: ringPoint(anchors.campfire, r, a, 0.45 * (tier + 1) - 0.42), pose: 'sit', face: anchors.campfire, seated: true };
+        // the aisle runs half a seat over, toward the middle, clear of the seats below this one
+        const half = (Math.PI * 0.36) / Math.max(n - 1, 1);
+        const aisleA = a + (rel > 0 ? -half : half);
+        return {
+          pos: ringPoint(F, r, a, 0.45 * (tier + 1) - 0.42),
+          route: amphRoute(a, r, aisleA),
+          routeKey: 'campfire',
+          hub: F,
+          pose: 'sit',
+          face: F,
+          seated: true,
+        };
       }
     }
   }
@@ -434,7 +477,8 @@ export function createCrowd(scene, ctx, { count = 40, seed = 11 } = {}) {
       } else if (t.route && d > 30) {
         // walk in from just outside the first waypoint (never from inside the building)
         const first = t.route[0];
-        const out = Math.atan2(first.z - P.z, first.x - P.x) + m.jitter.x * 0.6;
+        const hub = t.hub ?? P;
+        const out = Math.atan2(first.z - hub.z, first.x - hub.x) + m.jitter.x * 0.6;
         const [x, z] = dryNear(first, out, 4 + Math.abs(m.jitter.y) * 8);
         m.mesh.position.set(x, ctx.heightAt(x, z), z);
       } else if (t.indoors && (d > 30 || !m.placed)) {
@@ -483,8 +527,11 @@ export function createCrowd(scene, ctx, { count = 40, seed = 11 } = {}) {
         p.add(tmp);
         keepAshore(p, goal, tmp.length());
         if (wasOut && pavR(goal) >= PAV_KEEP) keepOffPavilion(p, goal, tmp.length());
-        const lift = final && dist < 1.5 ? t.pos.y - groundAt(t.pos.x, t.pos.z) : 0;
-        p.y = THREE.MathUtils.lerp(p.y, groundAt(p.x, p.z) + lift, 0.3);
+        // walk on whatever is underfoot: step straight up onto a stone tier or the pavilion step
+        // (easing up lagged with the feet inside the riser), ease down. Sitting down onto a seat
+        // happens once arrived, below, so nobody walks along a tier sunk by the sitting drop.
+        const ground = groundAt(p.x, p.z);
+        p.y = Math.max(ground, THREE.MathUtils.lerp(p.y, ground, 0.3));
         m.mesh.rotation.y = Math.atan2(tmp.x, tmp.z);
         m.mesh.userData.setPose('walk');
         m.mesh.userData.update(dt, dist > 12 ? 1.6 : 1);
