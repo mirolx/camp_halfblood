@@ -282,8 +282,13 @@ export function createCrowd(scene, ctx, { count = 40, seed = 11 } = {}) {
         return { pos: ringPoint(anchors.arena, 15.5, i * 0.7), pose: 'idle', face: anchors.arena };
       }
       case 'pegasus': {
-        // gather by the lake shore and stables to watch the flights
-        return { pos: i % 2 ? dockSpot(i) : stablesSpot(i), pose: 'idle', face: anchors.lake, lookUp: true };
+        // a third of camp (the player always among them) watches the flights from the lake shore
+        // and the stables; the rest head back to their cabins and stay indoors
+        if (i % 3 === 0 || m.isPlayer) {
+          const w = i / 3; // compact watcher number, so the spots fill without gaps
+          return { pos: w % 2 ? dockSpot(w) : stablesSpot(w), pose: 'idle', face: anchors.lake, lookUp: true };
+        }
+        return { pos: onGround(door.clone()), pose: 'idle', indoors: true };
       }
       case 'dinner': {
         const tables = ctx.pavilionTables;
@@ -355,7 +360,11 @@ export function createCrowd(scene, ctx, { count = 40, seed = 11 } = {}) {
     for (const m of members) {
       const t = targetFor(m, sceneId, progress);
       const d = m.mesh.position.distanceTo(t.pos);
-      if (d > 30 || !m.placed) {
+      if (t.indoors && (d > 30 || !m.placed)) {
+        // already inside: no walk in from off-camera (it could cut through the cabin walls)
+        m.mesh.position.copy(t.pos);
+        m.placed = true;
+      } else if (d > 30 || !m.placed) {
         const a = m.jitter.x * 6.28;
         const r = m.placed ? 10 + Math.abs(m.jitter.y) * 10 : 0;
         const [x, z] = r ? dryNear(t.pos, a, r) : [t.pos.x, t.pos.z];
@@ -374,6 +383,9 @@ export function createCrowd(scene, ctx, { count = 40, seed = 11 } = {}) {
       const p = m.mesh.position;
       tmp.copy(t.pos).sub(p).setY(0);
       const dist = tmp.length();
+      // through the door and out of sight; anyone else (and everyone in other scenes) is shown.
+      // The player's visibility belongs to the camera (hidden in first person).
+      if (!m.isPlayer) m.mesh.visible = !(t.indoors && dist <= 0.25);
       if (dist > 0.25) {
         const speed = dist > 12 ? JOG : WALK;
         tmp.normalize().multiplyScalar(Math.min(speed * dt, dist));
