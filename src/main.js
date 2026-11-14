@@ -51,6 +51,8 @@ app.register('claiming', (el, go, state) =>
 // Blender cabins, rigged campers and the pegasus horse load in the background while the player takes the test.
 let cabinModels = null;
 const modelsReady = Promise.all([
+  // cabin numbers and the camp sign are drawn onto canvases once, so the face must be in by then
+  document.fonts?.load('96px "ChosunGu"').catch(() => {}),
   loadCabinModels().then((m) => (cabinModels = m)),
   loadCharacterModels(),
   loadPegasusModel(),
