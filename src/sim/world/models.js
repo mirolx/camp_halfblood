@@ -7,7 +7,7 @@ export const CABIN_MODELS = {
   // `interior` is a second root in the same file, built to fit inside the cabin's walls.
   zeus: { file: 'zeus_cabin.glb', root: 'ZEUS_CABIN', interior: 'ZEUS_INTERIOR' },
   hera: { file: 'hera_cabin.glb', root: 'HERA_CABIN' },
-  poseidon: { file: 'poseidon_cabin.glb', root: 'POSEIDON_CABIN' },
+  poseidon: { file: 'poseidon_cabin.glb', root: 'POSEIDON_CABIN', interior: 'POSEIDON_INTERIOR' },
   demeter: { file: 'demeter_cabin.glb', root: 'DEMETER_CABIN' },
   ares: { file: 'ares_cabin.glb', root: 'ARES_CABIN' },
   athena: { file: 'athena_cabin.glb', root: 'ATHENA_CABIN' },
