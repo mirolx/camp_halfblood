@@ -15,7 +15,7 @@ export const CABIN_MODELS = {
   artemis: { file: 'artemis_cabin.glb', root: 'ARTEMIS_CABIN' },
   hephaestus: { file: 'hephaestus_cabin.glb', root: 'HEPHAESTUS_CABIN' },
   aphrodite: { file: 'aphrodite_cabin.glb', root: 'APHRODITE_CABIN', interior: 'APHRODITE_INTERIOR' },
-  hermes: { file: 'hermes_cabin.glb', root: 'HERMES_CABIN' },
+  hermes: { file: 'hermes_cabin.glb', root: 'HERMES_CABIN', interior: 'HERMES_INTERIOR' },
   dionysus: { file: 'dionysus_cabin.glb', root: 'DIONYSUS_CABIN' },
 };
 
