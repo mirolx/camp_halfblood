@@ -10,7 +10,7 @@ export const CABIN_MODELS = {
   poseidon: { file: 'poseidon_cabin.glb', root: 'POSEIDON_CABIN', interior: 'POSEIDON_INTERIOR' },
   demeter: { file: 'demeter_cabin.glb', root: 'DEMETER_CABIN' },
   ares: { file: 'ares_cabin.glb', root: 'ARES_CABIN' },
-  athena: { file: 'athena_cabin.glb', root: 'ATHENA_CABIN' },
+  athena: { file: 'athena_cabin.glb', root: 'ATHENA_CABIN', interior: 'ATHENA_INTERIOR' },
   apollo: { file: 'apollo_cabin.glb', root: 'APOLLO_CABIN' },
   artemis: { file: 'artemis_cabin.glb', root: 'ARTEMIS_CABIN' },
   hephaestus: { file: 'hephaestus_cabin.glb', root: 'HEPHAESTUS_CABIN' },
