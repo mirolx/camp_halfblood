@@ -120,9 +120,9 @@ describe('cabin model registry', () => {
     expect(CABIN_MODELS.ares).toEqual({ file: 'ares_cabin.glb', root: 'ARES_CABIN' });
   });
 
-  test('aphrodite cabin is registered with its Blender root', async () => {
+  test('aphrodite cabin is registered with its Blender root and fitted interior', async () => {
     const { CABIN_MODELS } = await import('../src/sim/world/models.js');
-    expect(CABIN_MODELS.aphrodite).toEqual({ file: 'aphrodite_cabin.glb', root: 'APHRODITE_CABIN' });
+    expect(CABIN_MODELS.aphrodite).toEqual({ file: 'aphrodite_cabin.glb', root: 'APHRODITE_CABIN', interior: 'APHRODITE_INTERIOR' });
   });
 
   test('athena cabin is registered with its Blender root and fitted interior', async () => {
