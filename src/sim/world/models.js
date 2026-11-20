@@ -16,7 +16,7 @@ export const CABIN_MODELS = {
   hephaestus: { file: 'hephaestus_cabin.glb', root: 'HEPHAESTUS_CABIN', interior: 'HEPHAESTUS_INTERIOR' },
   aphrodite: { file: 'aphrodite_cabin.glb', root: 'APHRODITE_CABIN', interior: 'APHRODITE_INTERIOR' },
   hermes: { file: 'hermes_cabin.glb', root: 'HERMES_CABIN', interior: 'HERMES_INTERIOR' },
-  dionysus: { file: 'dionysus_cabin.glb', root: 'DIONYSUS_CABIN' },
+  dionysus: { file: 'dionysus_cabin.glb', root: 'DIONYSUS_CABIN', interior: 'DIONYSUS_INTERIOR' },
 };
 
 // Camp buildings other than cabins, same pipeline. Keys are what buildWorld's `models` carries.
