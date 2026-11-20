@@ -110,14 +110,14 @@ describe('cabin model registry', () => {
     expect(CABIN_MODELS.poseidon).toEqual({ file: 'poseidon_cabin.glb', root: 'POSEIDON_CABIN', interior: 'POSEIDON_INTERIOR' });
   });
 
-  test('demeter cabin is registered with its Blender root', async () => {
+  test('demeter cabin is registered with its Blender root and fitted interior', async () => {
     const { CABIN_MODELS } = await import('../src/sim/world/models.js');
-    expect(CABIN_MODELS.demeter).toEqual({ file: 'demeter_cabin.glb', root: 'DEMETER_CABIN' });
+    expect(CABIN_MODELS.demeter).toEqual({ file: 'demeter_cabin.glb', root: 'DEMETER_CABIN', interior: 'DEMETER_INTERIOR' });
   });
 
-  test('ares cabin is registered with its Blender root', async () => {
+  test('ares cabin is registered with its Blender root and fitted interior', async () => {
     const { CABIN_MODELS } = await import('../src/sim/world/models.js');
-    expect(CABIN_MODELS.ares).toEqual({ file: 'ares_cabin.glb', root: 'ARES_CABIN' });
+    expect(CABIN_MODELS.ares).toEqual({ file: 'ares_cabin.glb', root: 'ARES_CABIN', interior: 'ARES_INTERIOR' });
   });
 
   test('aphrodite cabin is registered with its Blender root and fitted interior', async () => {

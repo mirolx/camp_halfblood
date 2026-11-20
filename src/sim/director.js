@@ -44,8 +44,13 @@ export function createDirector(stage, { godId, gender, startAt = 0, audio = null
     if (sceneId !== 'dawn') return null;
     const wa = cab.userData.worldAnchors;
     if (p < 0.4) return { pos: cab.userData.anchors.windowSide.clone().applyMatrix4(cab.matrixWorld), pose: 'idle', face: wa.window.clone().add(wa.window.clone().sub(wa.sound).setY(0).multiplyScalar(3)) };
-    // walk out ahead of (and beside) the camera so 'me' never blocks the doorway shot
-    if (p < 0.62) return { pos: new THREE.Vector3(1.8, 0, 11 / 2 + 7.5).applyMatrix4(cab.matrixWorld), pose: 'idle', face: ctx.anchors.green };
+    // walk out ahead of (and beside) the camera so 'me' never blocks the doorway shot.
+    // A fitted interior has real walls: go through the room and the door along the camera's route
+    // (from mid-room on, so the camera at the window isn't brushed), not straight through a wall.
+    if (p < 0.62) {
+      const route = cab.userData.dawnPath?.slice(2).map((v) => v.clone().applyMatrix4(cab.matrixWorld));
+      return { pos: new THREE.Vector3(1.8, 0, 11 / 2 + 7.5).applyMatrix4(cab.matrixWorld), pose: 'idle', face: ctx.anchors.green, ...(route && { route, routeKey: 'dawn-out' }) };
+    }
     return null;
   };
   for (const m of crowd.members) world.addFill(m.mesh);
