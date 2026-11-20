@@ -12,7 +12,7 @@ export const CABIN_MODELS = {
   ares: { file: 'ares_cabin.glb', root: 'ARES_CABIN', interior: 'ARES_INTERIOR' },
   athena: { file: 'athena_cabin.glb', root: 'ATHENA_CABIN', interior: 'ATHENA_INTERIOR' },
   apollo: { file: 'apollo_cabin.glb', root: 'APOLLO_CABIN', interior: 'APOLLO_INTERIOR' },
-  artemis: { file: 'artemis_cabin.glb', root: 'ARTEMIS_CABIN' },
+  artemis: { file: 'artemis_cabin.glb', root: 'ARTEMIS_CABIN', interior: 'ARTEMIS_INTERIOR' },
   hephaestus: { file: 'hephaestus_cabin.glb', root: 'HEPHAESTUS_CABIN', interior: 'HEPHAESTUS_INTERIOR' },
   aphrodite: { file: 'aphrodite_cabin.glb', root: 'APHRODITE_CABIN', interior: 'APHRODITE_INTERIOR' },
   hermes: { file: 'hermes_cabin.glb', root: 'HERMES_CABIN', interior: 'HERMES_INTERIOR' },
