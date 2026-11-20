@@ -100,9 +100,9 @@ describe('cabins with a Blender model', () => {
 });
 
 describe('cabin model registry', () => {
-  test('hephaestus cabin is registered with its Blender root', async () => {
+  test('hephaestus cabin is registered with its Blender root and fitted interior', async () => {
     const { CABIN_MODELS } = await import('../src/sim/world/models.js');
-    expect(CABIN_MODELS.hephaestus).toEqual({ file: 'hephaestus_cabin.glb', root: 'HEPHAESTUS_CABIN' });
+    expect(CABIN_MODELS.hephaestus).toEqual({ file: 'hephaestus_cabin.glb', root: 'HEPHAESTUS_CABIN', interior: 'HEPHAESTUS_INTERIOR' });
   });
 
   test('poseidon cabin is registered with its Blender root and fitted interior', async () => {
@@ -135,9 +135,9 @@ describe('cabin model registry', () => {
     expect(CABIN_MODELS.apollo).toEqual({ file: 'apollo_cabin.glb', root: 'APOLLO_CABIN', interior: 'APOLLO_INTERIOR' });
   });
 
-  test('artemis cabin is registered with its Blender root', async () => {
+  test('artemis cabin is registered with its Blender root and fitted interior', async () => {
     const { CABIN_MODELS } = await import('../src/sim/world/models.js');
-    expect(CABIN_MODELS.artemis).toEqual({ file: 'artemis_cabin.glb', root: 'ARTEMIS_CABIN' });
+    expect(CABIN_MODELS.artemis).toEqual({ file: 'artemis_cabin.glb', root: 'ARTEMIS_CABIN', interior: 'ARTEMIS_INTERIOR' });
   });
 
   test('hermes cabin is registered with its Blender root and fitted interior', async () => {
@@ -145,9 +145,9 @@ describe('cabin model registry', () => {
     expect(CABIN_MODELS.hermes).toEqual({ file: 'hermes_cabin.glb', root: 'HERMES_CABIN', interior: 'HERMES_INTERIOR' });
   });
 
-  test('dionysus cabin is registered with its Blender root', async () => {
+  test('dionysus cabin is registered with its Blender root and fitted interior', async () => {
     const { CABIN_MODELS } = await import('../src/sim/world/models.js');
-    expect(CABIN_MODELS.dionysus).toEqual({ file: 'dionysus_cabin.glb', root: 'DIONYSUS_CABIN' });
+    expect(CABIN_MODELS.dionysus).toEqual({ file: 'dionysus_cabin.glb', root: 'DIONYSUS_CABIN', interior: 'DIONYSUS_INTERIOR' });
   });
 
   test('hera cabin is registered with its Blender root', async () => {
