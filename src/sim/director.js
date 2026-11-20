@@ -48,11 +48,13 @@ export function createDirector(stage, { godId, gender, startAt = 0, audio = null
     if (p < 0.62) return { pos: new THREE.Vector3(1.8, 0, 11 / 2 + 7.5).applyMatrix4(cab.matrixWorld), pose: 'idle', face: ctx.anchors.green };
     return null;
   };
+  for (const m of crowd.members) world.addFill(m.mesh);
   ctx.player = player;
   ctx.playerLookUp = () => (me.state?.lookUp ? 0.5 : 0);
 
   const pegasi = createPegasi(scene, ctx, { count: 4 });
   ctx.pegasus = pegasi.list[0];
+  for (const p of pegasi.list) if (p.userData.rider) world.addFill(p.userData.rider);
 
   const cameras = createCameras(stage.renderer, ctx);
   if (audio) {
@@ -70,7 +72,7 @@ export function createDirector(stage, { godId, gender, startAt = 0, audio = null
   cameras.snap(s0.id, sceneProgress(clock.elapsed()));
 
   const interior = cab.getObjectByName('interior');
-  const homeDoor = cab.getObjectByName('door');
+  const homeDoors = cab.userData.doors ?? [];
   const campfire = world.facilities.campfire;
   const brazier = world.facilities.brazierFire;
   const fireA = new THREE.Color();
@@ -78,18 +80,22 @@ export function createDirector(stage, { godId, gender, startAt = 0, audio = null
 
   const off = stage.onFrame((dt) => {
     clock.tick(dt);
+    // paused freezes the world (campers, arrows, pegasi, water, ambience); the camera keeps
+    // the real dt so you can still drag to look around a frozen frame
+    const simDt = clock.isPaused() ? 0 : dt;
     const t = clock.elapsed();
     const s = clock.scene();
     const p = sceneProgress(t);
     const tod = timeOfDayAt(t);
 
-    crowd.update(dt, s.id, p);
-    pegasi.update(dt, s.id, p);
+    crowd.update(simDt, s.id, p);
+    pegasi.update(simDt, s.id, p);
     cameras.update(dt, s.id, p);
-    const sky = world.update(dt, tod, cameras.focus());
+    const sky = world.update(simDt, tod, cameras.focus());
 
     // the front door swings open just before we walk out (and stays open for the day)
-    if (homeDoor) homeDoor.rotation.y = 1.7 * (s.id === 'dawn' ? THREE.MathUtils.smoothstep(p, 0.4, 0.47) : 1);
+    const doorOpen = 1.7 * (s.id === 'dawn' ? THREE.MathUtils.smoothstep(p, 0.4, 0.47) : 1);
+    for (const d of homeDoors) d.obj.rotation.y = d.sign * doorOpen;
 
     // cabin lamp only before the camp is fully awake
     if (interior) interior.children.find((c) => c.isPointLight).intensity = s.id === 'dawn' ? 8 : 0;
@@ -117,7 +123,7 @@ export function createDirector(stage, { godId, gender, startAt = 0, audio = null
     stage.bloom.strength = 0.04 + night * 0.4;
     stage.bloom.threshold = 0.85;
 
-    audio?.update({ sceneId: s.id, progress: p, dt, camera: cameras.camera });
+    audio?.update({ sceneId: s.id, progress: p, dt: simDt, camera: cameras.camera });
   });
 
   return {

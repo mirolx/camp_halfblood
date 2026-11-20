@@ -7,7 +7,7 @@ export const LAYOUT = {
   dock: { x: 44, z: -58 },
   pavilion: { x: 38, z: -36 },
   bigHouse: { x: 40, z: 22 },
-  arena: { x: -52, z: 8 },
+  arena: { x: -60, z: 8 }, // outer tier (rx 26) stays clear of the west cabins
   archery: { x: -58, z: -40 },
   stables: { x: 6, z: -54 },
   amphitheater: { x: -30, z: 44 },

@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { LAYOUT } from '../world/layout.js';
 import { heightAt } from '../world/terrain.js';
+import { createPlayer } from '../../three/player.js';
 
 const COAT = new THREE.MeshStandardMaterial({ color: '#f3f0ea', roughness: 0.6 });
 const MANE = new THREE.MeshStandardMaterial({ color: '#e8e2d6', roughness: 0.8 });
@@ -48,6 +49,8 @@ function wing(side) {
 // scaled from ~4.8m to the old figure's size; the feather wings above ride on its back.
 const HORSE_FILE = 'pegasus_horse.glb';
 const HORSE_SCALE = 0.55;
+// from the mid-back bone up (and forward, just behind the wing roots) to a rider's hip joint
+const SADDLE_OFFSET = new THREE.Vector3(0, 0.3, 0.3);
 const HORSE_COLORS = { Main: '#f3f0ea', Main_Light: '#dcd6cc', Hair: '#e8e2d6' };
 let horse = null; // { scene, animations } once loaded
 
@@ -99,7 +102,9 @@ function buildRiggedPegasus(index) {
     g.add(w);
   }
   const withers = model.getObjectByName('Torso2');
+  const saddle = model.getObjectByName('Torso');
   const back = new THREE.Vector3();
+  const seat = new THREE.Vector3(0, 1.9, 0);
 
   const mixer = new THREE.AnimationMixer(model);
   const clip = (n) => horse.animations.find((a) => a.name === n);
@@ -125,9 +130,11 @@ function buildRiggedPegasus(index) {
     withers.getWorldPosition(back);
     g.worldToLocal(back);
     for (const w of [wL, wR]) w.position.set(0, back.y + 0.12, back.z + 0.25);
+    // saddle point: on top of the mid-back bone, so the rider rises and falls with the stride
+    if (saddle) g.worldToLocal(saddle.getWorldPosition(seat)).add(SADDLE_OFFSET);
   }
 
-  g.userData = { wings: [wL, wR], legs: [], tail: null, rigged: true, setFlying, update };
+  g.userData = { wings: [wL, wR], legs: [], tail: null, rigged: true, setFlying, update, seat };
   update(0);
   return g;
 }
@@ -221,6 +228,9 @@ export function flightPosition(i, t, out = new THREE.Vector3()) {
   return out;
 }
 
+// the primitive pegasus' back: body capsule centred at y 1.45, radius 0.42
+const BLOCK_SEAT = new THREE.Vector3(0, 1.95, -0.1);
+
 export function createPegasi(scene, ctx, { count = 4 } = {}) {
   const list = [];
   const paddock = ctx.anchors.stables;
@@ -230,6 +240,13 @@ export function createPegasi(scene, ctx, { count = 4 } = {}) {
     p.rotation.y = i * 0.9;
     scene.add(p);
     list.push(p);
+    // a camper astride each pegasus, shown only while they fly
+    const rider = createPlayer(i % 2 ? 'male' : 'female', { seed: 60 + i * 3 });
+    rider.name = `rider-${i}`;
+    rider.userData.setPose('ride');
+    rider.visible = false;
+    p.add(rider);
+    p.userData.rider = rider;
   }
   const prev = new THREE.Vector3();
   const next = new THREE.Vector3();
@@ -269,6 +286,13 @@ export function createPegasi(scene, ctx, { count = 4 } = {}) {
         }
       }
       if (rigged) p.userData.update(dt);
+      const { rider } = p.userData;
+      rider.visible = flying;
+      if (flying) {
+        const seat = p.userData.seat ?? BLOCK_SEAT;
+        rider.position.set(seat.x, seat.y - (rider.userData.hipHeight ?? 0.86), seat.z);
+        rider.userData.update(dt);
+      }
     });
   }
 

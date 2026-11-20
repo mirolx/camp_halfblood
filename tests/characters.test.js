@@ -91,8 +91,9 @@ describe('rigged campers', () => {
   });
 
   test('pose turns do not pile up over many frames', () => {
+    // a held pose built from bone turns (drawBow now animates a shot cycle, so it moves on purpose)
     const p = createPlayer('male', { seed: 2 });
-    p.userData.setPose('drawBow');
+    p.userData.setPose('ride');
     const wrist = () => {
       p.updateMatrixWorld(true);
       return p.getObjectByName('WristL').getWorldPosition(new THREE.Vector3());

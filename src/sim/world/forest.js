@@ -58,7 +58,7 @@ export function createForest(scene, heightAt, { count = 1100, seed = 7 } = {}) {
     (rand() < 0.62 ? pines : leafs).push(item);
   }
   // a few shade trees inside camp, away from buildings
-  for (const [x, z] of [[-14, -40], [24, -14], [-70, 30], [70, 10], [-20, 70], [28, 64], [-62, -14]]) {
+  for (const [x, z] of [[-14, -40], [14, -40], [-70, 30], [70, 10], [-20, 70], [28, 64], [-62, -14]]) {
     leafs.push({ x, z, y: heightAt(x, z) - 0.2, s: 0.9, r: x });
   }
 

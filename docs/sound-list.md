@@ -22,4 +22,6 @@ Pixabay 효과음은 무료이고 출처 표시 없이 쓸 수 있어요 (Pixaba
 | 페가수스 | 날갯짓 | `wings_flap.mp3` | https://pixabay.com/sound-effects/search/large%20wings%20flapping/ | 큰 새/백조 날갯짓 |
 | 페가수스 | 말 울음 | `horse_neigh.mp3` | https://pixabay.com/sound-effects/search/horse%20neigh/ | 짧고 깨끗한 울음 |
 
+Pixabay 대신 Suno로 만들고 싶다면 [suno-prompts.md](suno-prompts.md) 아래쪽 "Suno 효과음 만들기"의 프롬프트를 쓰세요.
+
 받은 파일은 `.mp3` 그대로 넣어도 되고, `.wav`/`.ogg`라면 그대로 넣고 알려주시면 제가 변환할게요.

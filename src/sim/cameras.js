@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { LAYOUT } from './world/layout.js';
 
 const ease = (k) => k * k * (3 - 2 * k);
@@ -7,21 +6,17 @@ const seg = (p, a, b) => THREE.MathUtils.clamp((p - a) / (b - a), 0, 1);
 
 /**
  * Two camera modes:
- *  - overview: scripted cinematic shots per scene; drag to look around, released → glides back.
- *  - first: the player's eyes; drag to turn the head (yaw ±120°, pitch ±60°).
+ *  - overview: scripted cinematic shots per scene.
+ *  - first: the player's eyes.
+ * In both, dragging turns the view around the camera's own position (360° yaw, pitch up to ±80°)
+ * on top of whatever the shot is doing, so moving shots keep moving while you look around.
+ * The wheel zooms. The offset stays until you double-click / press R, switch view or the scene changes.
  */
 export function createCameras(renderer, ctx) {
   const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 6000);
   const dom = renderer.domElement;
-  const controls = new OrbitControls(camera, dom);
-  controls.enabled = false;
-  controls.enableDamping = true;
-  controls.dampingFactor = 0.08;
-  controls.maxPolarAngle = Math.PI * 0.49;
 
   let mode = 'overview';
-  let manual = false;
-  let releaseAt = 0;
   let blend = 1; // 0..1 blend from previous camera state into the scripted one
   let time = 0;
   const from = { pos: new THREE.Vector3(), look: new THREE.Vector3() };
@@ -29,13 +24,12 @@ export function createCameras(renderer, ctx) {
   const current = { pos: new THREE.Vector3(30, 40, 60), look: new THREE.Vector3() };
   let lastScene = null;
 
-  // first-person look offsets
-  let yaw = 0;
-  let pitch = 0;
+  // free-look offsets: target values set by input, smoothed values applied to the camera
+  const look = { yaw: 0, pitch: 0, zoom: 0, yawS: 0, pitchS: 0, zoomS: 0 };
   let dragging = false;
+  let pointerId = null;
   let lastX = 0;
   let lastY = 0;
-  let fpBlend = 0;
 
   const { anchors } = ctx;
   const W = (v) => v.clone();
@@ -62,13 +56,15 @@ export function createCameras(renderer, ctx) {
   function dawnPath(cab) {
     if (pathCache?.cab === cab) return pathCache.curve;
     const D = 11;
-    const pts = [
+    // a Blender cabin with a fitted interior carries its own route (window → room → door → porch)
+    const local = cab.userData.dawnPath ?? [
       new THREE.Vector3(0, 1.6, -D / 2 + 0.25 + 0.85),
       new THREE.Vector3(1.0, 1.6, -2.2),
       new THREE.Vector3(0.6, 1.6, 1.8),
       new THREE.Vector3(0, 1.7, D / 2 - 0.4),
       new THREE.Vector3(0, 1.8, D / 2 + 4),
-    ].map((v) => cabinPoint(v));
+    ];
+    const pts = local.map((v) => cabinPoint(v));
     pathCache = { cab, curve: new THREE.CatmullRomCurve3(pts) };
     return pathCache.curve;
   }
@@ -80,7 +76,7 @@ export function createCameras(renderer, ctx) {
         const D = 11;
         const cab = ctx.cabins.get(ctx.homeCabin);
         const inWindow = cabinPoint(cab.userData.anchors.window);
-        const outDoor = cabinPoint(new THREE.Vector3(0, 1.8, D / 2 + 4));
+        const outDoor = cabinPoint(cab.userData.dawnPath?.at(-1) ?? new THREE.Vector3(0, 1.8, D / 2 + 4));
         const greenHigh = W(anchors.green).add(new THREE.Vector3(26, 30, 42));
         const windowYaw = dawnWindowYaw(inWindow);
         if (p < 0.38) {
@@ -171,36 +167,43 @@ export function createCameras(renderer, ctx) {
     }
   }
 
+  const fov = () => (mode === 'first' ? 70 : 50);
+  const resetLook = () => { look.yaw = 0; look.pitch = 0; look.zoom = 0; };
+
   const onDown = (e) => {
-    if (mode === 'first') {
-      dragging = true;
-      lastX = e.clientX;
-      lastY = e.clientY;
-      return;
-    }
-    if (!manual) {
-      manual = true;
-      controls.target.copy(current.look);
-      controls.enabled = true;
-      controls.update();
-    }
-    releaseAt = Infinity;
+    if (e.button !== 0 || dragging) return;
+    dragging = true;
+    pointerId = e.pointerId;
+    lastX = e.clientX;
+    lastY = e.clientY;
+    dom.setPointerCapture?.(e.pointerId);
+    dom.classList.add('dragging');
   };
-  const onUp = () => {
+  const onUp = (e) => {
+    if (e.pointerId !== pointerId) return;
     dragging = false;
-    if (manual) releaseAt = time + 2;
+    pointerId = null;
+    dom.classList.remove('dragging');
   };
   const onMove = (e) => {
-    if (!dragging) return;
-    yaw = THREE.MathUtils.clamp(yaw - (e.clientX - lastX) * 0.004, -2.1, 2.1);
-    pitch = THREE.MathUtils.clamp(pitch - (e.clientY - lastY) * 0.004, -1.05, 1.05);
+    if (!dragging || e.pointerId !== pointerId) return;
+    // slower when zoomed in, so the scene moves under the cursor at roughly the same rate
+    const k = 0.0035 * (camera.fov / 50);
+    look.yaw += (e.clientX - lastX) * k; // grab-style: the scene follows the cursor
+    look.pitch = THREE.MathUtils.clamp(look.pitch + (e.clientY - lastY) * k, -1.4, 1.4);
     lastX = e.clientX;
     lastY = e.clientY;
   };
+  const onWheel = (e) => {
+    e.preventDefault();
+    look.zoom = THREE.MathUtils.clamp(look.zoom + Math.sign(e.deltaY) * 4, -30, 15);
+  };
   dom.addEventListener('pointerdown', onDown);
-  window.addEventListener('pointerup', onUp);
-  window.addEventListener('pointermove', onMove);
-  controls.addEventListener('start', () => { releaseAt = Infinity; });
+  dom.addEventListener('pointerup', onUp);
+  dom.addEventListener('pointercancel', onUp);
+  dom.addEventListener('pointermove', onMove);
+  dom.addEventListener('wheel', onWheel, { passive: false });
+  dom.addEventListener('dblclick', resetLook);
 
   function setMode(m) {
     if (m === mode) return;
@@ -208,9 +211,9 @@ export function createCameras(renderer, ctx) {
     // dragged the camera through walls and the player's own body
     blend = 1;
     mode = m;
-    yaw = 0;
-    pitch = 0;
-    if (manual) { manual = false; controls.enabled = false; }
+    resetLook();
+    look.yawS = look.pitchS = look.zoomS = 0;
+    camera.fov = fov();
     // in first person the camera sits inside 'me': hide the whole body so it can't fill the view
     ctx.player.visible = m !== 'first';
   }
@@ -223,42 +226,37 @@ export function createCameras(renderer, ctx) {
     head.updateMatrixWorld(true);
     head.getWorldPosition(out.pos);
     out.pos.y += 0.13;
-    const baseYaw = p.rotation.y;
-    const lookUp = ctx.playerLookUp?.() ?? 0;
-    const y = baseYaw + yaw;
-    const pt = pitch + lookUp;
+    const y = p.rotation.y;
+    const pt = ctx.playerLookUp?.() ?? 0;
     eyeLook.set(Math.sin(y) * Math.cos(pt), Math.sin(pt), Math.cos(y) * Math.cos(pt));
     out.look.copy(out.pos).add(eyeLook.multiplyScalar(10));
-    // ease head turns back to centre when not dragging
-    if (!dragging) {
-      yaw *= 0.995;
-      pitch *= 0.995;
-    }
+  }
+
+  /** Turn the camera's view direction by the free-look offset, keeping its position. */
+  const dir = new THREE.Vector3();
+  const viewLook = new THREE.Vector3();
+  function applyLook(pos, target) {
+    dir.subVectors(target, pos);
+    const len = dir.length() || 1;
+    const baseYaw = Math.atan2(dir.x, dir.z);
+    const basePitch = Math.asin(THREE.MathUtils.clamp(dir.y / len, -1, 1));
+    const y = baseYaw + look.yawS;
+    const pt = THREE.MathUtils.clamp(basePitch + look.pitchS, -1.45, 1.45);
+    viewLook.set(Math.sin(y) * Math.cos(pt), Math.sin(pt), Math.cos(y) * Math.cos(pt)).multiplyScalar(len).add(pos);
+    camera.position.copy(pos);
+    camera.lookAt(viewLook);
   }
 
   function update(dt, sceneId, progress) {
     time += dt;
     if (sceneId !== lastScene) {
-      if (lastScene !== null && mode === 'overview' && !manual) {
+      if (lastScene !== null && mode === 'overview') {
         from.pos.copy(camera.position);
         from.look.copy(current.look);
         blend = 0;
       }
       lastScene = sceneId;
-    }
-
-    if (manual) {
-      controls.update();
-      current.look.copy(controls.target);
-      if (time > releaseAt) {
-        manual = false;
-        controls.enabled = false;
-        from.pos.copy(camera.position);
-        from.look.copy(controls.target);
-        blend = 0;
-      } else {
-        return;
-      }
+      resetLook(); // new scene, new framing: glide back to what the shot wants to show
     }
 
     if (mode === 'first') firstPerson(shot);
@@ -268,10 +266,13 @@ export function createCameras(renderer, ctx) {
     const k = ease(blend);
     current.pos.lerpVectors(from.pos, shot.pos, k);
     current.look.lerpVectors(from.look, shot.look, k);
-    camera.position.copy(current.pos);
-    camera.lookAt(current.look);
-    fpBlend = mode === 'first' ? 1 : 0;
-    camera.fov = THREE.MathUtils.lerp(camera.fov, fpBlend ? 70 : 50, 0.08);
+
+    const s = 1 - Math.exp(-dt * 14);
+    look.yawS += (look.yaw - look.yawS) * s;
+    look.pitchS += (look.pitch - look.pitchS) * s;
+    look.zoomS += (look.zoom - look.zoomS) * (1 - Math.exp(-dt * 8));
+    applyLook(current.pos, current.look);
+    camera.fov = fov() + look.zoomS;
     camera.updateProjectionMatrix();
   }
 
@@ -285,8 +286,9 @@ export function createCameras(renderer, ctx) {
     current.pos.copy(shot.pos);
     current.look.copy(shot.look);
     blend = 1;
-    camera.position.copy(shot.pos);
-    camera.lookAt(shot.look);
+    resetLook();
+    look.yawS = look.pitchS = look.zoomS = 0;
+    applyLook(shot.pos, shot.look);
   }
 
   return {
@@ -296,12 +298,16 @@ export function createCameras(renderer, ctx) {
     toggle() { setMode(mode === 'first' ? 'overview' : 'first'); },
     update,
     snap,
+    resetLook,
     focus: () => current.look,
     dispose() {
-      controls.dispose();
       dom.removeEventListener('pointerdown', onDown);
-      window.removeEventListener('pointerup', onUp);
-      window.removeEventListener('pointermove', onMove);
+      dom.removeEventListener('pointerup', onUp);
+      dom.removeEventListener('pointercancel', onUp);
+      dom.removeEventListener('pointermove', onMove);
+      dom.removeEventListener('wheel', onWheel);
+      dom.removeEventListener('dblclick', resetLook);
+      dom.classList.remove('dragging');
     },
   };
 }

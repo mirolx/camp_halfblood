@@ -263,14 +263,39 @@ export function buildCabin(id, { interior = false, model = null, groupScale = 1 
   fp.receiveShadow = true;
   g.add(fp);
 
-  if (model && !interior) {
+  // a model can stand in for the home cabin only if it brings an interior that fits its walls
+  const fitted = model?.userData.interior;
+  if (model && (!interior || fitted)) {
     fp.visible = false; // the model brings its own stepped platform
     const m = model.clone(true);
     m.name = `model-${id}`;
     m.userData.fireSpots = model.userData.fireSpots;
     m.scale.setScalar(1 / groupScale);
     g.add(m);
-    g.userData.anchors = ANCHORS();
+    const anchors = ANCHORS();
+    if (interior) {
+      // model anchors are in metres; the group is scaled by groupScale
+      const toGroup = (v) => v.clone().divideScalar(groupScale);
+      const A = fitted.userData.anchors ?? {};
+      for (const k of ['window', 'windowSide', 'bed', 'sound']) if (A[k]) anchors[k] = toGroup(A[k]);
+      if (A.path?.length) g.userData.dawnPath = A.path.map(toGroup);
+      const inside = new THREE.Group();
+      inside.name = 'interior';
+      const im = fitted.clone(true);
+      im.name = `interior-model-${id}`;
+      im.scale.setScalar(1 / groupScale);
+      inside.add(im);
+      const lamp = new THREE.PointLight('#ffe2b0', 8, 12, 1.2);
+      lamp.position.copy(A.lamp ? toGroup(A.lamp) : new THREE.Vector3(0, h - 0.5, 0.5));
+      inside.add(lamp);
+      g.add(inside);
+      // double doors swing inward on their hinge pivots
+      g.userData.doors = [
+        { obj: m.getObjectByName('DOOR_pivot_L'), sign: 1 },
+        { obj: m.getObjectByName('DOOR_pivot_R'), sign: -1 },
+      ].filter((d) => d.obj);
+    }
+    g.userData.anchors = anchors;
     g.userData.id = id;
     g.userData.style = s;
     return g;
@@ -344,6 +369,7 @@ export function buildCabin(id, { interior = false, model = null, groupScale = 1 
   }
 
   g.userData.anchors = ANCHORS();
+  g.userData.doors = [{ obj: door, sign: 1 }];
   g.userData.id = id;
   g.userData.style = s;
   return g;

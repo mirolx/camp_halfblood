@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { clone as cloneSkinned } from 'three/examples/jsm/utils/SkeletonUtils.js';
+import { createArcher } from './archery.js';
 
 // Rigged campers from Quaternius' Ultimate Modular Men / Women packs (CC0, quaternius.com).
 // All five share one 62-bone skeleton and the same 24 clips; they face +Z and stand ~1.8m tall.
@@ -72,9 +73,66 @@ function painted(base, color) {
   return paintCache.get(key);
 }
 
-const CLIPS = { idle: 'Idle', walk: 'Walk', run: 'Run', sit: 'Idle_Neutral', drawBow: 'Idle_Neutral', swing: 'Sword_Slash' };
+// Bronze cuirass for duelists: lathe shells fitted around the torso (radii are fractions of
+// the torso's half-width / half-depth), each riding the bone that bends that part of the body.
+const BRONZE = new THREE.MeshStandardMaterial({ color: '#b8863b', metalness: 0.55, roughness: 0.38 });
+const LEATHER = new THREE.MeshStandardMaterial({ color: '#5a3b22', roughness: 0.85 });
+const lathe = (profile) => new THREE.LatheGeometry(profile.map(([r, y]) => new THREE.Vector2(r, y)), 20);
+const CHEST_PLATE = lathe([[0.86, 1.22], [0.97, 1.31], [1, 1.4], [0.9, 1.47], [0.5, 1.51]]);
+const BELLY_PLATE = lathe([[0.98, 1.0], [0.88, 1.06], [0.83, 1.14], [0.87, 1.25]]);
+const PAULDRON = new THREE.SphereGeometry(0.095, 12, 6, 0, Math.PI * 2, 0, Math.PI / 2);
+const STRAP = new THREE.BoxGeometry(0.075, 0.17, 0.02);
+
+function buildArmor(model, B, gender) {
+  const hips = model.getObjectByName('Hips');
+  const torso = model.getObjectByName('Torso') ?? B.chest;
+  model.updateMatrixWorld(true);
+  const at = (b) => b.getWorldPosition(new THREE.Vector3());
+  const c = at(B.chest);
+  const rx = 0.205;
+  const rz = gender === 'female' ? 0.165 : 0.14; // room for the bust
+  const cz = c.z + (gender === 'female' ? 0.03 : 0.01);
+  const parts = [];
+  const add = (mesh, bone) => {
+    mesh.castShadow = true;
+    mesh.visible = false;
+    model.add(mesh);
+    mesh.updateMatrixWorld(true);
+    bone.attach(mesh); // keep the fitted model-space placement, follow the bone from now on
+    parts.push(mesh);
+  };
+  for (const [geo, bone] of [[CHEST_PLATE, B.chest], [BELLY_PLATE, torso]]) {
+    const m = new THREE.Mesh(geo, BRONZE);
+    m.position.set(c.x, 0, cz);
+    m.scale.set(rx, 1, rz);
+    add(m, bone);
+  }
+  for (const s of ['L', 'R']) {
+    const arm = at(B[`upperArm${s}`]);
+    const out = Math.sign(arm.x - c.x);
+    const p = new THREE.Mesh(PAULDRON, BRONZE);
+    p.position.set(arm.x + out * 0.07, arm.y + 0.02, arm.z);
+    p.scale.set(1, 0.8, 1.15);
+    p.rotation.z = -out * 0.5; // dome tipped out over the shoulder
+    add(p, B[`upperArm${s}`]);
+  }
+  // pteruges: leather strips hanging from the cuirass over the hips
+  if (hips) {
+    for (let k = 0; k < 12; k++) {
+      const a = (k / 12) * Math.PI * 2;
+      const s = new THREE.Mesh(STRAP, LEATHER);
+      s.position.set(c.x + Math.sin(a) * rx * 1.0, 0.92, cz + Math.cos(a) * rz * 1.05);
+      s.rotation.y = a;
+      add(s, hips);
+    }
+  }
+  return parts;
+}
+
+const CLIPS = { idle: 'Idle', walk: 'Walk', run: 'Run', sit: 'Idle_Neutral', ride: 'Idle_Neutral', talk: 'Idle', drawBow: 'Idle_Neutral', swing: 'Sword_Slash' };
 const X = new THREE.Vector3(1, 0, 0);
-const Y = new THREE.Vector3(0, 1, 0);
+const Z = new THREE.Vector3(0, 0, 1);
+const Y_AXIS = new THREE.Vector3(0, 1, 0);
 const SIT_DROP = 0.42;
 
 /**
@@ -125,6 +183,15 @@ export function buildRiggedPlayer(gender, look, tpl, { bow, sword, poses }) {
   sword.position.set(0, 0.08, 0.02);
   sword.rotation.set(0, 0, -Math.PI / 2); // blade out past the thumb (wrist -X)
 
+  const armor = buildArmor(model, B, gender);
+  const archer = createArcher({ model, root, B, bow, rand: mulberry(seed * 13 + 5) });
+  let armored = false;
+  function setArmor(on) {
+    if (on === armored) return;
+    armored = on;
+    for (const p of armor) p.visible = on;
+  }
+
   const mixer = new THREE.AnimationMixer(model);
   const actions = {};
   const rand = mulberry(seed * 7 + 3);
@@ -138,7 +205,7 @@ export function buildRiggedPlayer(gender, look, tpl, { bow, sword, poses }) {
 
   let pose = 'idle';
   let current = null;
-  let phase = rand() * Math.PI * 2;
+  let talkT = rand() * 20; // own rhythm, so in a group one gestures while the others listen
 
   function play(key, fade = 0.25) {
     const next = actions[key] ?? actions.idle;
@@ -151,6 +218,8 @@ export function buildRiggedPlayer(gender, look, tpl, { bow, sword, poses }) {
 
   function setPose(p) {
     if (!poses.includes(p)) throw new Error(`Unknown pose: ${p}`);
+    if (p === 'drawBow' && pose !== 'drawBow') archer.enter();
+    if (p !== 'drawBow' && pose === 'drawBow') archer.leave();
     pose = p;
     bow.visible = p === 'drawBow';
     sword.visible = p === 'swing';
@@ -170,12 +239,33 @@ export function buildRiggedPlayer(gender, look, tpl, { bow, sword, poses }) {
     b.updateMatrixWorld(true);
   }
 
-  const wrist = new THREE.Vector3();
   function overrides() {
     model.position.y = pose === 'sit' ? -SIT_DROP : 0;
-    if (pose !== 'sit' && pose !== 'drawBow') return;
+    if (pose !== 'sit' && pose !== 'drawBow' && pose !== 'ride' && pose !== 'talk') return;
     root.updateMatrixWorld(true);
-    if (pose === 'sit') {
+    if (pose === 'talk') {
+      // chatting: small nods, and every few seconds a hand comes up to make a point
+      turn(B.head, X, Math.sin(talkT * 2.6) * 0.07 + 0.04);
+      const beat = talkT % 4.5;
+      const g = beat < 1.6 ? Math.sin((beat / 1.6) * Math.PI) : 0;
+      if (g > 0) {
+        turn(B.upperArmR, X, -0.55 * g);
+        turn(B.lowerArmR, X, -0.95 * g);
+        turn(B.lowerArmR, Y_AXIS, 0.4 * g * Math.sin(talkT * 5));
+      }
+    } else if (pose === 'ride') {
+      // astride: thighs forward and spread round the barrel, shins hanging back along the flanks,
+      // leaning in with both hands down on the mane
+      turn(B.chest, X, 0.42);
+      for (const [s, out] of [['L', 1], ['R', -1]]) {
+        turn(B[`upperLeg${s}`], X, -1.05);
+        turn(B[`upperLeg${s}`], Z, out * 0.62);
+        turn(B[`lowerLeg${s}`], X, 1.35);
+        turn(B[`upperArm${s}`], X, -1.0);
+        turn(B[`upperArm${s}`], Z, out * 0.12);
+        turn(B[`lowerArm${s}`], X, -0.7);
+      }
+    } else if (pose === 'sit') {
       for (const s of ['L', 'R']) {
         turn(B[`upperLeg${s}`], X, -1.5);
         turn(B[`lowerLeg${s}`], X, 1.5);
@@ -183,32 +273,28 @@ export function buildRiggedPlayer(gender, look, tpl, { bow, sword, poses }) {
         turn(B[`lowerArm${s}`], X, -0.35);
       }
     } else {
-      const pull = Math.sin(phase) * 0.5 + 0.5;
-      turn(B.chest, Y, 0.35);
-      turn(B.upperArmL, X, -1.65);
-      turn(B.upperArmL, Y, 0.2);
-      turn(B.upperArmR, X, -1.7);
-      turn(B.upperArmR, Y, -0.35);
-      turn(B.lowerArmR, Y, 2.3 + pull * 0.4);
-      B.wristL.getWorldPosition(wrist);
-      bow.position.copy(model.worldToLocal(wrist));
-      bow.position.z -= 0.5; // grip sits in the hand, string toward the archer
+      archer.apply();
     }
   }
 
   function update(dt, speed = 1) {
-    phase += dt * 1.6;
     const key = pose === 'walk' && speed > 1.3 ? 'run' : pose;
     play(key);
     if (current) current.timeScale = key === 'walk' || key === 'run' ? speed / (key === 'run' ? 1.6 : 1) : 1;
     for (const [b, q] of rest) b.quaternion.copy(q);
     mixer.update(dt);
+    archer.update(dt);
+    if (pose === 'talk') talkT += dt;
     overrides();
   }
 
-  root.userData = { gender, setPose, update, getPose: () => pose, head: B.head, hair, rigged: true };
+  root.userData = { gender, setPose, setArmor, setAim: archer.setAim, update, getPose: () => pose, head: B.head, hair, rigged: true };
   setPose('idle');
   update(0);
+  // height of the hip joint above the feet, so a rider can be set down onto a saddle point
+  root.updateMatrixWorld(true);
+  const hips = model.getObjectByName('Hips');
+  root.userData.hipHeight = hips ? root.worldToLocal(hips.getWorldPosition(new THREE.Vector3())).y : 0.95;
   return root;
 }
 

@@ -51,45 +51,60 @@ function bigHouse() {
   return g;
 }
 
-function pavilion() {
+/**
+ * The dining pavilion. With a Blender `model` (floor, colonnade, brazier bowl and tables drawn in it)
+ * only the logic stays procedural: one empty frame per table, which the campers' seats are
+ * computed from, and the offering fire. Model tables sit on exactly these frames.
+ */
+function pavilion(model = null) {
   const g = new THREE.Group();
   const R = 13;
-  const floor = cyl(R, R + 0.3, 0.6, MARBLE, 0, 0.3, 0, g, 40);
-  floor.receiveShadow = true;
-  for (let i = 0; i < 18; i++) {
-    const a = (i / 18) * Math.PI * 2;
-    column(5.2, 0.32, MARBLE, Math.cos(a) * (R - 0.6), Math.sin(a) * (R - 0.6), g).position.y = 0.6;
+  if (model) {
+    g.add(model);
+  } else {
+    const floor = cyl(R, R + 0.3, 0.6, MARBLE, 0, 0.3, 0, g, 40);
+    floor.receiveShadow = true;
+    for (let i = 0; i < 18; i++) {
+      const a = (i / 18) * Math.PI * 2;
+      column(5.2, 0.32, MARBLE, Math.cos(a) * (R - 0.6), Math.sin(a) * (R - 0.6), g).position.y = 0.6;
+    }
+    // ring architrave, no roof (canon: open to the sky)
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(R - 0.6, 0.35, 6, 48), MARBLE);
+    ring.rotation.x = Math.PI / 2;
+    ring.position.y = 6.0;
+    ring.castShadow = true;
+    g.add(ring);
   }
-  // ring architrave, no roof (canon: open to the sky)
-  const ring = new THREE.Mesh(new THREE.TorusGeometry(R - 0.6, 0.35, 6, 48), MARBLE);
-  ring.rotation.x = Math.PI / 2;
-  ring.position.y = 6.0;
-  ring.castShadow = true;
-  g.add(ring);
-  // tables: one per cabin, radial
+  // tables: one per cabin, radial (benches along x at z = +-0.95, top 0.49; campers.js seats on them)
   const tables = [];
   for (let i = 0; i < 12; i++) {
     const a = (i / 12) * Math.PI * 2 + 0.13;
     const t = new THREE.Group();
+    t.name = `table-${i}`;
     t.position.set(Math.cos(a) * 7.8, 0.6, Math.sin(a) * 7.8);
     t.rotation.y = -a;
-    box(3.6, 0.12, 1.1, std('#d9d1bf', { rough: 0.4 }), 0, 0.85, 0, t);
-    for (const sz of [-0.95, 0.95]) box(3.4, 0.08, 0.45, WOOD, 0, 0.45, sz, t);
-    for (const sx of [-1.5, 1.5]) box(0.12, 0.8, 0.8, WOOD, sx, 0.4, 0, t);
-    for (let k = 0; k < 6; k++) cyl(0.14, 0.12, 0.04, WHITE, -1.4 + k * 0.56, 0.93, (k % 2 ? 0.3 : -0.3), t, 10);
+    if (!model) {
+      box(3.6, 0.12, 1.1, std('#d9d1bf', { rough: 0.4 }), 0, 0.85, 0, t);
+      for (const sz of [-0.95, 0.95]) box(3.4, 0.08, 0.45, WOOD, 0, 0.45, sz, t);
+      for (const sx of [-1.5, 1.5]) box(0.12, 0.8, 0.8, WOOD, sx, 0.4, 0, t);
+      for (let k = 0; k < 6; k++) cyl(0.14, 0.12, 0.04, WHITE, -1.4 + k * 0.56, 0.93, (k % 2 ? 0.3 : -0.3), t, 10);
+    }
     g.add(t);
     tables.push(t);
   }
   // central brazier for offerings
   const brazier = new THREE.Group();
   brazier.position.y = 0.6;
-  cyl(0.9, 0.6, 1.0, std('#8a6a2a', { metal: 0.8, rough: 0.35 }), 0, 0.5, 0, brazier, 16);
+  if (!model) cyl(0.9, 0.6, 1.0, std('#8a6a2a', { metal: 0.8, rough: 0.35 }), 0, 0.5, 0, brazier, 16);
   const fire = createFire({ scale: 0.7, count: 140 });
   fire.group.position.y = 0.85;
   brazier.add(fire.group);
   g.add(brazier);
   return { group: g, fire, tables, radius: R };
 }
+
+// training dummies, in the arena's own frame (it is placed unrotated)
+export const ARENA_DUMMIES = [[-8, -4], [-8, 4], [8, -4], [8, 4]];
 
 function arena() {
   const g = new THREE.Group();
@@ -107,7 +122,7 @@ function arena() {
     g.add(tier);
   }
   // training dummies
-  for (const [x, z] of [[-8, -4], [-8, 4], [8, -4], [8, 4]]) {
+  for (const [x, z] of ARENA_DUMMIES) {
     cyl(0.08, 0.08, 1.8, DARK_WOOD, x, 0.9, z, g, 6);
     box(1.2, 0.12, 0.12, DARK_WOOD, x, 1.4, z, g);
     sphere(0.25, std('#c9b48d'), x, 1.9, z, g, 8);
@@ -161,14 +176,30 @@ function stables() {
   return g;
 }
 
+/**
+ * A flat ring segment (inner..outer radius, angles as CylinderGeometry's theta: x = r sin, z = r cos),
+ * standing on y = 0 and `height` tall, with closed ends.
+ */
+export function ringSector(inner, outer, height, thetaStart, thetaLength, segments = 32) {
+  const shape = new THREE.Shape();
+  const pt = (r, t) => [r * Math.sin(t), -r * Math.cos(t)]; // shape y = -z, see rotateX below
+  shape.moveTo(...pt(outer, thetaStart));
+  for (let i = 1; i <= segments; i++) shape.lineTo(...pt(outer, thetaStart + (thetaLength * i) / segments));
+  for (let i = segments; i >= 0; i--) shape.lineTo(...pt(inner, thetaStart + (thetaLength * i) / segments));
+  const geo = new THREE.ExtrudeGeometry(shape, { depth: height, bevelEnabled: false, curveSegments: 1 });
+  geo.rotateX(-Math.PI / 2); // extrusion depth becomes +y, shape y becomes -z
+  return geo;
+}
+
 function amphitheater() {
   const g = new THREE.Group();
   const stone = std('#8d8578', { rough: 0.95 });
+  // tier r is a ring from the previous tier's edge out to 6 + 1.3r, 0.45 higher than the one inside
+  // it, so the seats really step down toward the fire (campers.js seats people on these tops)
   for (let r = 0; r < 5; r++) {
     const radius = 6 + r * 1.3;
     const height = 0.45 * (r + 1);
-    const step = new THREE.Mesh(new THREE.CylinderGeometry(radius, radius, height, 48, 1, false, Math.PI * 0.6, Math.PI * 0.8), stone);
-    step.position.y = height / 2;
+    const step = new THREE.Mesh(ringSector(radius - 1.3, radius, height, Math.PI * 0.6, Math.PI * 0.8), stone);
     step.receiveShadow = true;
     step.castShadow = true;
     g.add(step);
@@ -245,17 +276,22 @@ function strawberries() {
   return g;
 }
 
-export function createFacilities(scene, heightAt) {
+export function createFacilities(scene, heightAt, { models = {} } = {}) {
   const L = LAYOUT;
   const at = (p, y = 0) => new THREE.Vector3(p.x, heightAt(p.x, p.z) + y, p.z);
 
-  const bh = place(bigHouse(), L.bigHouse, heightAt, faceCenter(L.bigHouse.x, L.bigHouse.z));
-  const pav = pavilion();
+  // the Blender Big House (front toward +Z, like the procedural one) when it loaded
+  const bh = place(models.bigHouse ? models.bigHouse.clone(true) : bigHouse(), L.bigHouse, heightAt, faceCenter(L.bigHouse.x, L.bigHouse.z));
+  bh.name = 'big-house';
+  const pavModel = models.pavilion ? models.pavilion.clone(true) : null;
+  const pav = pavilion(pavModel);
   place(pav.group, L.pavilion, heightAt);
   const ar = place(arena(), L.arena, heightAt);
   const arch = archery();
   place(arch.group, L.archery, heightAt, faceCenter(L.archery.x, L.archery.z));
-  const st = place(stables(), L.stables, heightAt, faceCenter(L.stables.x, L.stables.z));
+  // the Blender barn and paddock (paddock toward +Z, where the pegasi graze) when it loaded
+  const st = place(models.stables ? models.stables.clone(true) : stables(), L.stables, heightAt, faceCenter(L.stables.x, L.stables.z));
+  st.name = 'stables';
   const amph = amphitheater();
   place(amph.group, L.amphitheater, heightAt, faceCenter(L.amphitheater.x, L.amphitheater.z));
   const pine = place(thaliaPine(heightAt), L.thaliaPine, heightAt);
@@ -286,9 +322,15 @@ export function createFacilities(scene, heightAt) {
   return {
     anchors,
     archeryTargets: targetWorld,
+    arenaDummies: ARENA_DUMMIES.map(([x, z]) => at({ x: L.arena.x + x, z: L.arena.z + z })),
     pavilionTables: pav.tables,
     brazierFire: pav.fire,
     campfire: amph.fire,
     gate,
+    bigHouse: bh,
+    stables: st,
+    pavilion: pav.group,
+    // the Blender models actually placed (index.js gives them reflections and real fire at *_flame spots)
+    modelled: [models.bigHouse && bh, models.stables && st, pavModel].filter(Boolean),
   };
 }

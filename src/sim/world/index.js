@@ -15,7 +15,7 @@ export function buildWorld(scene, renderer, { interiorFor = 'hermes', models = {
   const lake = createLake(scene);
   createForest(scene, terrain.heightAt);
   const cabins = layoutCabins(scene, terrain.heightAt, { interiorFor, models });
-  const facilities = createFacilities(scene, terrain.heightAt);
+  const facilities = createFacilities(scene, terrain.heightAt, { models });
 
   // Blender cabins: reflections for gold/bronze, and real fire in the braziers
   const pmrem = new THREE.PMREMGenerator(renderer);
@@ -23,8 +23,9 @@ export function buildWorld(scene, renderer, { interiorFor = 'hermes', models = {
   pmrem.dispose();
   const metals = []; // every model material with its daytime reflection strength
   const fires = [];
-  for (const cabin of cabins.values()) {
-    const model = cabin.getObjectByName(`model-${cabin.userData.id}`);
+  const modelled = [...cabins.values()].flatMap((c) => [c.getObjectByName(`model-${c.userData.id}`), c.getObjectByName(`interior-model-${c.userData.id}`)]);
+  modelled.push(...facilities.modelled);
+  for (const model of modelled) {
     if (!model) continue;
     applyEnvironment(model, env);
     model.traverse((o) => {
@@ -45,6 +46,23 @@ export function buildWorld(scene, renderer, { interiorFor = 'hermes', models = {
   let t = 0;
   return {
     heightAt: terrain.heightAt,
+    /**
+     * Soft all-round fill for characters. With only the sun and a dim hemisphere light, their
+     * camera-facing side is usually in shade (the scripted shots often look into the sun) and
+     * renders near-black. The same studio map as the cabins lifts that side and fades out at night.
+     */
+    addFill(root, strength = 0.9) {
+      root.traverse((o) => {
+        if (!o.isMesh) return;
+        for (const m of Array.isArray(o.material) ? o.material : [o.material]) {
+          if (!m?.isMeshStandardMaterial || metals.some((e) => e.m === m)) continue;
+          m.envMap = env;
+          m.envMapIntensity = strength;
+          m.needsUpdate = true;
+          metals.push({ m, base: strength });
+        }
+      });
+    },
     sky,
     lake,
     cabins,
